@@ -3,34 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hapax Mini Sequencer + Web MIDI</title>
+  <title>Hapax Isomorphic Grid</title>
   <style>
     :root {
-      --bg: #121316;
-      --card: #1c1e24;
+      --bg: #111215;
+      --card: #1a1c23;
       --accent: #00f0ff;
-      --accent-active: #ff0055;
-      --midi-color: #ff9900;
+      --root-note: #ff0055;
+      --scale-note: #2d3245;
       --text: #e0e6ed;
-      --border: #2e323e;
+      --border: #2a2e3d;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg);
       color: var(--text);
       margin: 0;
-      padding: 20px;
+      padding: 15px;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
     .app-container {
       width: 100%;
-      max-width: 900px;
+      max-width: 600px;
       background: var(--card);
       border-radius: 12px;
       border: 1px solid var(--border);
-      padding: 20px;
+      padding: 15px;
       box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     header {
@@ -38,315 +38,272 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 15px;
-      margin-bottom: 20px;
+      padding-bottom: 12px;
+      margin-bottom: 15px;
     }
-    h1 { margin: 0; font-size: 1.4rem; color: var(--accent); letter-spacing: 1px; }
-    .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-    button {
-      background: #2a2d37;
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 8px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: all 0.2s;
-    }
-    button:hover { background: #3a3f4d; }
-    button.active { background: var(--accent); color: #000; border-color: var(--accent); }
-    select, input {
-      background: #2a2d37;
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 8px;
-      border-radius: 6px;
-    }
+    h1 { margin: 0; font-size: 1.2rem; color: var(--accent); letter-spacing: 1px; }
+    
     .panel {
-      background: #18191f;
-      padding: 15px;
+      background: #15161c;
+      padding: 12px;
       border-radius: 8px;
       margin-bottom: 15px;
       border: 1px solid var(--border);
     }
-    .panel-title { 
-      font-size: 0.85rem; 
-      font-weight: bold; 
-      margin-bottom: 10px; 
-      color: var(--midi-color); 
-      text-transform: uppercase; 
-      letter-spacing: 0.5px;
-    }
-    .grid {
+    .controls-grid {
       display: grid;
-      gap: 4px;
-      margin-bottom: 20px;
-      background: #15161a;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 10px;
+    }
+    label { font-size: 0.75rem; color: #8a94a6; display: flex; flex-direction: column; gap: 4px; }
+    select, input {
+      background: #222531;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 6px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+    }
+
+    /* ISOMORPHIC GRID */
+    .iso-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      background: #0d0e11;
       padding: 10px;
       border-radius: 8px;
+      touch-action: manipulation;
     }
     .pad {
-      background: #252830;
-      border: 1px solid #333745;
-      border-radius: 4px;
+      background: #1c1f2b;
+      border: 1px solid #2a2e3d;
+      border-radius: 6px;
       aspect-ratio: 1;
       cursor: pointer;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      font-size: 0.7rem;
       user-select: none;
+      transition: background 0.05s, transform 0.05s;
     }
-    .pad.active { background: var(--accent); color: #000; font-weight: bold; }
-    .pad.current-step { background-color: #3d4354; }
-    .fx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-    .status { font-size: 0.8rem; color: #8a94a6; }
+    .pad:active, .pad.playing {
+      background: var(--accent) !important;
+      color: #000 !important;
+      transform: scale(0.95);
+    }
+    .pad.in-scale {
+      background: var(--scale-note);
+      border-color: #3d445c;
+    }
+    .pad.is-root {
+      background: var(--root-note);
+      color: #fff;
+      font-weight: bold;
+      border-color: #ff5588;
+    }
+    .pad-note { font-size: 0.8rem; font-weight: bold; }
+    .pad-midi { font-size: 0.6rem; opacity: 0.6; margin-top: 2px; }
   </style>
 </head>
 <body>
 
 <div class="app-container">
   <header>
-    <h1>HAPAX // MIDI OUT</h1>
-    <div class="controls">
-      <button id="playBtn">PLAY</button>
-      <label>BPM: <input type="number" id="bpm" value="120" min="40" max="240" style="width: 50px;"></label>
-      <label>Scale: 
-        <select id="scaleSelect">
-          <option value="minor">Minor Pentatonic</option>
-          <option value="major">Major Pentatonic</option>
-          <option value="dorian">Dorian</option>
-        </select>
-      </label>
-    </div>
+    <h1>HAPAX // LIVE GRID</h1>
+    <div id="midiStatus" style="font-size: 0.75rem; color: var(--accent);">MIDI Init...</div>
   </header>
 
-  <!-- MIDI HARDWARE PANEL -->
+  <!-- CONTROL PANEL -->
   <div class="panel">
-    <div class="panel-title">MIDI Output Setup</div>
-    <div class="fx-grid">
-      <label>Gerät:
-        <select id="midiOutputSelect">
-          <option value="">Lade MIDI-Geräte...</option>
-        </select>
+    <div class="controls-grid">
+      <label>MIDI Gerät:
+        <select id="midiOutputSelect"><option value="">Suche...</option></select>
       </label>
       <label>Kanal:
         <select id="midiChannel">
           <option value="0">Channel 1</option>
           <option value="1">Channel 2</option>
           <option value="2">Channel 3</option>
-          <option value="3">Channel 4</option>
         </select>
       </label>
-      <label>Interner Sound:
-        <input type="checkbox" id="internalAudioToggle" checked> An
+      <label>Key (Grundton):
+        <select id="rootSelect"></select>
       </label>
-      <div id="midiStatus" class="status">Warte auf Web MIDI Zugriff...</div>
+      <label>Scale (Tonleiter):
+        <select id="scaleSelect">
+          <option value="minor">Minor Pentatonic</option>
+          <option value="major">Major Pentatonic</option>
+          <option value="naturalMinor">Natural Minor</option>
+          <option value="majorScale">Major</option>
+          <option value="dorian">Dorian</option>
+          <option value="chromatic">Chromatic (All)</option>
+        </select>
+      </label>
+      <label>Grid Layout (Sprung):
+        <select id="offsetSelect">
+          <option value="5" selected>4ths (Standard / Hapax)</option>
+          <option value="7">5ths (Gitarre/Violine)</option>
+          <option value="12">Octaves</option>
+        </select>
+      </label>
+      <label>Oktav-Offset:
+        <input type="number" id="octaveShift" value="3" min="1" max="6">
+      </label>
     </div>
   </div>
 
-  <!-- MAIN GRID VIEW -->
-  <div id="grid" class="grid"></div>
-
-  <!-- REALTIME FX PANEL -->
-  <div class="panel">
-    <div class="panel-title" style="color: #8a94a6;">Realtime FX Engine</div>
-    <div class="fx-grid">
-      <label>Random Chance:
-        <input type="range" id="chance" min="0" max="100" value="100">
-      </label>
-      <label>Pattern-Länge:
-        <select id="trackLength">
-          <option value="16">16 Steps (4/4)</option>
-          <option value="12">12 Steps (3/4)</option>
-          <option value="7">7 Steps (Polymeter)</option>
-        </select>
-      </label>
-    </div>
-  </div>
+  <!-- ISOMORPHIC GRID -->
+  <div id="isoGrid" class="iso-grid"></div>
 </div>
 
 <script>
-// --- WEB AUDIO SETUP ---
-const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+// --- NOTE NAMES & SCALES ---
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
-// --- WEB MIDI SETUP ---
-let midiAccess = null;
+const SCALES = {
+  minor: [0, 3, 5, 7, 10],
+  major: [0, 2, 4, 7, 9],
+  naturalMinor: [0, 2, 3, 5, 7, 8, 10],
+  majorScale: [0, 2, 4, 5, 7, 9, 11],
+  dorian: [0, 2, 3, 5, 7, 9, 10],
+  chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+};
+
+// State
+let rootMidi = 48; // C3
+let currentScale = 'minor';
+let rowOffset = 5; // 4th interval offset per row
 let activeMidiOutput = null;
 
+// DOM
+const gridEl = document.getElementById('isoGrid');
+const rootSelect = document.getElementById('rootSelect');
+
+// Populate Root Note Selector
+NOTE_NAMES.forEach((note, idx) => {
+  const opt = document.createElement('option');
+  opt.value = idx;
+  opt.innerText = note;
+  if (idx === 0) opt.selected = true;
+  rootSelect.appendChild(opt);
+});
+
+// MIDI SETUP
 async function initMIDI() {
-  const statusEl = document.getElementById('midiStatus');
-  const selectEl = document.getElementById('midiOutputSelect');
-  
   if (navigator.requestMIDIAccess) {
     try {
-      midiAccess = await navigator.requestMIDIAccess();
-      statusEl.innerText = "MIDI bereit.";
+      const midiAccess = await navigator.requestMIDIAccess();
+      document.getElementById('midiStatus').innerText = "MIDI Aktiv";
       
-      updateMidiDevices();
-      midiAccess.onstatechange = updateMidiDevices;
-    } catch (err) {
-      statusEl.innerText = "MIDI-Zugriff verweigert.";
+      const updateDevices = () => {
+        const select = document.getElementById('midiOutputSelect');
+        select.innerHTML = '';
+        const outputs = Array.from(midiAccess.outputs.values());
+        outputs.forEach(out => {
+          const opt = document.createElement('option');
+          opt.value = out.id;
+          opt.innerText = out.name;
+          select.appendChild(opt);
+        });
+        if (outputs.length > 0) activeMidiOutput = outputs[0];
+      };
+
+      updateDevices();
+      midiAccess.onstatechange = updateDevices;
+    } catch (e) {
+      document.getElementById('midiStatus').innerText = "MIDI Fehler";
     }
-  } else {
-    statusEl.innerText = "Browser unterstützt keine Web MIDI API.";
   }
-}
-
-function updateMidiDevices() {
-  const selectEl = document.getElementById('midiOutputSelect');
-  selectEl.innerHTML = '';
-  
-  const outputs = Array.from(midiAccess.outputs.values());
-  if (outputs.length === 0) {
-    selectEl.innerHTML = '<option value="">Kein MIDI-Gerät gefunden</option>';
-    activeMidiOutput = null;
-    return;
-  }
-
-  outputs.forEach(output => {
-    const opt = document.createElement('option');
-    opt.value = output.id;
-    opt.innerText = output.name;
-    selectEl.appendChild(opt);
-  });
-
-  // Wähle das erste Gerät als Standard
-  activeMidiOutput = outputs[0];
 }
 
 document.getElementById('midiOutputSelect').addEventListener('change', (e) => {
-  if (midiAccess) {
-    activeMidiOutput = midiAccess.outputs.get(e.target.value);
-  }
+  navigator.requestMIDIAccess().then(m => activeMidiOutput = m.outputs.get(e.target.value));
 });
 
-// --- SEQUENCER LOGIK ---
-const SCALES = {
-  minor: [0, 3, 5, 7, 10, 12, 15, 17],
-  major: [0, 2, 4, 7, 9, 12, 14, 16],
-  dorian: [0, 2, 3, 5, 7, 9, 10, 12]
-};
-
-let currentScale = 'minor';
-let rootNote = 48; // C3
-let isPlaying = false;
-let currentStep = 0;
-let stepCount = 16;
-let bpm = 120;
-let timerId = null;
-
-const rows = 8;
-let gridState = Array(rows).fill(null).map(() => Array(16).fill(false));
-
-const gridEl = document.getElementById('grid');
-const playBtn = document.getElementById('playBtn');
-
-function getPitch(rowIndex) {
+// Helper: Get Note Info
+function getNoteDetails(midi) {
+  const name = NOTE_NAMES[midi % 12];
+  const octave = Math.floor(midi / 12) - 1;
   const scaleIntervals = SCALES[currentScale];
-  const scaleDegree = (rows - 1 - rowIndex);
-  return rootNote + scaleIntervals[scaleDegree % scaleIntervals.length];
+  const relativePitch = (midi - (rootMidi % 12) + 12) % 12;
+  
+  const isInScale = scaleIntervals.includes(relativePitch);
+  const isRoot = relativePitch === 0;
+
+  return { name: `${name}${octave}`, midi, isInScale, isRoot };
 }
 
-// Sendet Noten an Web Audio + MIDI Output
-function triggerNote(midiNote) {
-  const chance = parseInt(document.getElementById('chance').value);
-  if (Math.random() * 100 > chance) return; // Hapax Chance FX
-
-  const gateDurationMs = (60 / bpm / 4) * 1000 * 0.8; // 80% Gate-Length
-
-  // 1. Interner Synthesizer (falls aktiviert)
-  if (document.getElementById('internalAudioToggle').checked) {
-    if (AudioCtx.state === 'suspended') AudioCtx.resume();
-    const osc = AudioCtx.createOscillator();
-    const gain = AudioCtx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(440 * Math.pow(2, (midiNote - 69) / 12), AudioCtx.currentTime);
-    gain.gain.setValueAtTime(0.2, AudioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, AudioCtx.currentTime + (gateDurationMs / 1000));
-    osc.connect(gain);
-    gain.connect(AudioCtx.destination);
-    osc.start();
-    osc.stop(AudioCtx.currentTime + (gateDurationMs / 1000));
-  }
-
-  // 2. MIDI Output an externe Hardware
+// Send MIDI Note
+function playNote(midiNote) {
   if (activeMidiOutput) {
-    const channel = parseInt(document.getElementById('midiChannel').value);
-    const noteOnByte = 0x90 | channel;  // Note On
-    const noteOffByte = 0x80 | channel; // Note Off
-    const velocity = 100;
-
-    // Send Note On
-    activeMidiOutput.send([noteOnByte, midiNote, velocity]);
-
-    // Send Note Off nach Ablauf der Gate Time
-    setTimeout(() => {
-      activeMidiOutput.send([noteOffByte, midiNote, 0]);
-    }, gateDurationMs);
+    const ch = parseInt(document.getElementById('midiChannel').value);
+    activeMidiOutput.send([0x90 | ch, midiNote, 100]); // Note On
   }
 }
 
+function stopNote(midiNote) {
+  if (activeMidiOutput) {
+    const ch = parseInt(document.getElementById('midiChannel').value);
+    activeMidiOutput.send([0x80 | ch, midiNote, 0]); // Note Off
+  }
+}
+
+// Render Isomorphic Grid
 function renderGrid() {
   gridEl.innerHTML = '';
-  gridEl.style.gridTemplateColumns = `repeat(${stepCount}, 1fr)`;
+  const baseOctave = parseInt(document.getElementById('octaveShift').value);
+  const rootNoteIndex = parseInt(rootSelect.value);
+  rootMidi = (baseOctave + 1) * 12 + rootNoteIndex;
 
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < stepCount; c++) {
+  const rows = 8;
+  const cols = 8;
+
+  // Render from Top (high notes) to Bottom (low notes)
+  for (let r = rows - 1; r >= 0; r--) {
+    for (let c = 0; c < cols; c++) {
+      const midiNote = rootMidi + (r * rowOffset) + c;
+      const details = getNoteDetails(midiNote);
+
       const pad = document.createElement('div');
-      pad.className = `pad ${gridState[r][c] ? 'active' : ''} ${c === currentStep && isPlaying ? 'current-step' : ''}`;
-      pad.addEventListener('click', () => {
-        gridState[r][c] = !gridState[r][c];
-        if (gridState[r][c]) triggerNote(getPitch(r));
-        renderGrid();
-      });
+      pad.className = `pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
+      
+      pad.innerHTML = `
+        <span class="pad-note">${details.name}</span>
+        <span class="pad-midi">${details.midi}</span>
+      `;
+
+      // Touch / Mouse Handling
+      const start = (e) => {
+        e.preventDefault();
+        pad.classList.add('playing');
+        playNote(midiNote);
+      };
+
+      const end = (e) => {
+        e.preventDefault();
+        pad.classList.remove('playing');
+        stopNote(midiNote);
+      };
+
+      pad.addEventListener('touchstart', start);
+      pad.addEventListener('touchend', end);
+      pad.addEventListener('mousedown', start);
+      pad.addEventListener('mouseup', end);
+
       gridEl.appendChild(pad);
     }
   }
 }
 
-function runSequencer() {
-  if (!isPlaying) return;
-
-  for (let r = 0; r < rows; r++) {
-    if (gridState[r][currentStep]) {
-      triggerNote(getPitch(r));
-    }
-  }
-
-  renderGrid();
-  currentStep = (currentStep + 1) % stepCount;
-
-  const stepTime = (60 / bpm / 4) * 1000;
-  timerId = setTimeout(runSequencer, stepTime);
-}
-
-// Event Listeners
-playBtn.addEventListener('click', () => {
-  isPlaying = !isPlaying;
-  playBtn.innerText = isPlaying ? 'STOP' : 'PLAY';
-  playBtn.classList.toggle('active', isPlaying);
-  if (isPlaying) {
-    currentStep = 0;
-    runSequencer();
-  } else {
-    clearTimeout(timerId);
+// Controls Listeners
+[rootSelect, document.getElementById('scaleSelect'), document.getElementById('offsetSelect'), document.getElementById('octaveShift')].forEach(el => {
+  el.addEventListener('change', () => {
+    currentScale = document.getElementById('scaleSelect').value;
+    rowOffset = parseInt(document.getElementById('offsetSelect').value);
     renderGrid();
-  }
-});
-
-document.getElementById('scaleSelect').addEventListener('change', (e) => {
-  currentScale = e.target.value;
-  renderGrid();
-});
-
-document.getElementById('bpm').addEventListener('change', (e) => {
-  bpm = parseInt(e.target.value);
-});
-
-document.getElementById('trackLength').addEventListener('change', (e) => {
-  stepCount = parseInt(e.target.value);
-  renderGrid();
+  });
 });
 
 // Init
