@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hapax Hex Grid</title>
+  <title>Hapax Multi Grid & Sequencer</title>
   <style>
     :root {
       --bg: #111215;
@@ -14,6 +14,7 @@
       --out-scale: #161822;
       --text: #e0e6ed;
       --border: #2a2e3d;
+      --linked-highlight: #ffe600; /* Gelb für gleiche Noten */
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -27,7 +28,7 @@
     }
     .app-container {
       width: 100%;
-      max-width: 650px;
+      max-width: 680px;
       background: var(--card);
       border-radius: 12px;
       border: 1px solid var(--border);
@@ -57,16 +58,62 @@
       gap: 8px;
     }
     label { font-size: 0.7rem; color: #8a94a6; display: flex; flex-direction: column; gap: 3px; }
-    select, input {
+    select, input, button {
       background: #222531;
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 5px;
+      padding: 6px;
       border-radius: 6px;
       font-size: 0.8rem;
     }
 
-    /* HEXAGON WABEN GRID */
+    /* MODE SELECTOR BUTTONS */
+    .mode-bar {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+    .mode-btn {
+      flex: 1;
+      font-weight: bold;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+    }
+    .mode-btn.active {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+    }
+
+    /* BASE PAD STYLES */
+    .pad {
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      transition: background 0.05s, transform 0.05s;
+      background: var(--out-scale);
+      border: 1px solid var(--border);
+    }
+    .pad:active, .pad.playing {
+      background: var(--accent) !important;
+      color: #000 !important;
+      transform: scale(0.92);
+    }
+    .pad.same-note-highlight {
+      background: var(--linked-highlight) !important;
+      color: #000 !important;
+      box-shadow: 0 0 10px var(--linked-highlight);
+    }
+    .pad.in-scale { background: var(--scale-note); }
+    .pad.is-root { background: var(--root-note); color: #fff; font-weight: bold; }
+    .pad-note { font-size: 0.75rem; font-weight: bold; pointer-events: none; }
+    .pad-midi { font-size: 0.55rem; opacity: 0.6; margin-top: 1px; pointer-events: none; }
+
+    /* HEX GRID */
     .hex-wrapper {
       display: flex;
       flex-direction: column;
@@ -77,52 +124,63 @@
       overflow-x: auto;
       touch-action: manipulation;
     }
-    .hex-row {
-      display: flex;
-      margin-bottom: -12px; /* Vertikales Ineinandergreifen */
-    }
-    .hex-row:nth-child(even) {
-      transform: translateX(23px); /* Einrücken jeder 2. Zeile für Wabenmuster */
-    }
-    .pad {
+    .hex-row { display: flex; margin-bottom: -12px; }
+    .hex-row:nth-child(even) { transform: translateX(23px); }
+    .hex-pad {
       width: 44px;
       height: 50px;
       margin: 0 2px;
-      background: var(--out-scale);
-      /* Hexagon Geometrie über CSS Clip-Path */
+      border: none;
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-      cursor: pointer;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      user-select: none;
-      transition: background 0.05s, transform 0.05s;
     }
-    .pad:active, .pad.playing {
-      background: var(--accent) !important;
-      color: #000 !important;
-      transform: scale(0.92);
+
+    /* SQUARE PAD GRID */
+    .square-grid {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 6px;
+      background: #0b0c0e;
+      padding: 10px;
+      border-radius: 8px;
     }
-    .pad.in-scale {
-      background: var(--scale-note);
+    .square-pad {
+      aspect-ratio: 1;
+      border-radius: 6px;
     }
-    .pad.is-root {
-      background: var(--root-note);
-      color: #fff;
-      font-weight: bold;
+
+    /* STEP SEQUENCER */
+    .seq-grid {
+      display: grid;
+      grid-template-columns: repeat(16, 1fr);
+      gap: 4px;
+      background: #0b0c0e;
+      padding: 10px;
+      border-radius: 8px;
+      overflow-x: auto;
     }
-    .pad-note { font-size: 0.75rem; font-weight: bold; pointer-events: none; }
-    .pad-midi { font-size: 0.55rem; opacity: 0.6; margin-top: 1px; pointer-events: none; }
+    .seq-pad {
+      aspect-ratio: 0.6;
+      border-radius: 4px;
+      font-size: 0.6rem;
+    }
+    .seq-pad.active-step { background: var(--accent); color: #000; }
+    .seq-pad.current-playhead { border-color: #fff; box-shadow: 0 0 8px #fff; }
   </style>
 </head>
 <body>
 
 <div class="app-container">
   <header>
-    <h1>HAPAX // HEX GRID</h1>
+    <h1>HAPAX // MULTI ENGINE</h1>
     <div id="midiStatus" style="font-size: 0.75rem; color: var(--accent);">MIDI Init...</div>
   </header>
+
+  <!-- MODE SELECTOR -->
+  <div class="mode-bar">
+    <button class="mode-btn active" data-mode="hex">HEX GRID</button>
+    <button class="mode-btn" data-mode="square">PAD GRID</button>
+    <button class="mode-btn" data-mode="step">STEP SEQ</button>
+  </div>
 
   <!-- CONTROL PANEL -->
   <div class="panel">
@@ -150,22 +208,25 @@
           <option value="chromatic">Chromatic (All)</option>
         </select>
       </label>
-      <label>Hex-Intervall (Reihe):
+      <label>Row Intervall:
         <select id="offsetSelect">
-          <option value="5" selected>4ths (Standard / Hapax)</option>
+          <option value="5" selected>4ths (Hapax)</option>
           <option value="7">5ths (Gitarre)</option>
           <option value="3">Minor 3rd</option>
           <option value="4">Major 3rd</option>
         </select>
       </label>
-      <label>Oktav-Offset:
-        <input type="number" id="octaveShift" value="3" min="1" max="6">
-      </label>
+
+      <!-- SEQUENCER EXTRA CONTROLS -->
+      <div id="seqControls" style="display:none; grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+        <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold;">PLAY</button>
+        <label>BPM: <input type="number" id="bpm" value="120" min="40" max="240" style="width: 50px;"></label>
+      </div>
     </div>
   </div>
 
-  <!-- HEXAGON GRID -->
-  <div id="hexGrid" class="hex-wrapper"></div>
+  <!-- CONTAINER FÜR DIE MODI -->
+  <div id="viewContainer"></div>
 </div>
 
 <script>
@@ -180,12 +241,23 @@ const SCALES = {
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 };
 
+// Global State
+let currentMode = 'hex'; // 'hex', 'square', 'step'
 let rootMidi = 48; // C3
 let currentScale = 'minor';
 let rowOffset = 5;
 let activeMidiOutput = null;
 
-const gridEl = document.getElementById('hexGrid');
+// Sequencer State
+let isPlaying = false;
+let currentStep = 0;
+let bpm = 120;
+let timerId = null;
+const seqRows = 8;
+const seqCols = 16;
+let seqGridState = Array(seqRows).fill(null).map(() => Array(seqCols).fill(false));
+
+const viewContainer = document.getElementById('viewContainer');
 const rootSelect = document.getElementById('rootSelect');
 
 NOTE_NAMES.forEach((note, idx) => {
@@ -196,7 +268,7 @@ NOTE_NAMES.forEach((note, idx) => {
   rootSelect.appendChild(opt);
 });
 
-// MIDI
+// MIDI API
 async function initMIDI() {
   if (navigator.requestMIDIAccess) {
     try {
@@ -254,15 +326,39 @@ function stopNote(midiNote) {
   }
 }
 
-// Render Hexagon Grid
-function renderGrid() {
-  gridEl.innerHTML = '';
-  const baseOctave = parseInt(document.getElementById('octaveShift').value);
-  const rootNoteIndex = parseInt(rootSelect.value);
-  rootMidi = (baseOctave + 1) * 12 + rootNoteIndex;
+// HIGHLIGHT GLEICHER NOTEN (SAME NOTE LINKING)
+function highlightSameNotes(targetMidi) {
+  const pads = document.querySelectorAll('.pad');
+  pads.forEach(p => {
+    if (parseInt(p.dataset.midi) === targetMidi) {
+      p.classList.add('same-note-highlight');
+    }
+  });
+}
 
-  const rows = 7;
-  const cols = 9;
+function clearSameNoteHighlights() {
+  const pads = document.querySelectorAll('.pad');
+  pads.forEach(p => p.classList.remove('same-note-highlight'));
+}
+
+// RENDER FUNCTION (CHOOSE MODE)
+function renderView() {
+  viewContainer.innerHTML = '';
+  document.getElementById('seqControls').style.display = currentMode === 'step' ? 'flex' : 'none';
+
+  const rootNoteIndex = parseInt(rootSelect.value);
+  rootMidi = 48 + rootNoteIndex;
+
+  if (currentMode === 'hex') renderHexGrid();
+  else if (currentMode === 'square') renderSquareGrid();
+  else if (currentMode === 'step') renderStepSeq();
+}
+
+// 1. HEX GRID
+function renderHexGrid() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'hex-wrapper';
+  const rows = 7, cols = 9;
 
   for (let r = rows - 1; r >= 0; r--) {
     const rowEl = document.createElement('div');
@@ -273,46 +369,146 @@ function renderGrid() {
       const details = getNoteDetails(midiNote);
 
       const pad = document.createElement('div');
-      pad.className = `pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
+      pad.className = `pad hex-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
+      pad.dataset.midi = midiNote;
       
-      pad.innerHTML = `
-        <span class="pad-note">${details.name}</span>
-        <span class="pad-midi">${details.midi}</span>
-      `;
+      pad.innerHTML = `<span class="pad-note">${details.name}</span><span class="pad-midi">${details.midi}</span>`;
 
-      const start = (e) => {
-        e.preventDefault();
-        pad.classList.add('playing');
-        playNote(midiNote);
-      };
-
-      const end = (e) => {
-        e.preventDefault();
-        pad.classList.remove('playing');
-        stopNote(midiNote);
-      };
-
-      pad.addEventListener('touchstart', start);
-      pad.addEventListener('touchend', end);
-      pad.addEventListener('mousedown', start);
-      pad.addEventListener('mouseup', end);
-
+      bindPadEvents(pad, midiNote);
       rowEl.appendChild(pad);
     }
-    gridEl.appendChild(rowEl);
+    wrapper.appendChild(rowEl);
   }
+  viewContainer.appendChild(wrapper);
 }
 
-[rootSelect, document.getElementById('scaleSelect'), document.getElementById('offsetSelect'), document.getElementById('octaveShift')].forEach(el => {
-  el.addEventListener('change', () => {
-    currentScale = document.getElementById('scaleSelect').value;
-    rowOffset = parseInt(document.getElementById('offsetSelect').value);
-    renderGrid();
+// 2. SQUARE PAD GRID
+function renderSquareGrid() {
+  const grid = document.createElement('div');
+  grid.className = 'square-grid';
+  const rows = 8, cols = 8;
+
+  for (let r = rows - 1; r >= 0; r--) {
+    for (let c = 0; c < cols; c++) {
+      const midiNote = rootMidi + (r * rowOffset) + c;
+      const details = getNoteDetails(midiNote);
+
+      const pad = document.createElement('div');
+      pad.className = `pad square-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
+      pad.dataset.midi = midiNote;
+      
+      pad.innerHTML = `<span class="pad-note">${details.name}</span><span class="pad-midi">${details.midi}</span>`;
+
+      bindPadEvents(pad, midiNote);
+      grid.appendChild(pad);
+    }
+  }
+  viewContainer.appendChild(grid);
+}
+
+// PAD EVENT BINDING (WITH LINKED HIGHLIGHT)
+function bindPadEvents(pad, midiNote) {
+  const start = (e) => {
+    e.preventDefault();
+    pad.classList.add('playing');
+    highlightSameNotes(midiNote);
+    playNote(midiNote);
+  };
+
+  const end = (e) => {
+    e.preventDefault();
+    pad.classList.remove('playing');
+    clearSameNoteHighlights();
+    stopNote(midiNote);
+  };
+
+  pad.addEventListener('touchstart', start);
+  pad.addEventListener('touchend', end);
+  pad.addEventListener('mousedown', start);
+  pad.addEventListener('mouseup', end);
+}
+
+// 3. STEP SEQUENCER
+function renderStepSeq() {
+  const grid = document.createElement('div');
+  grid.className = 'seq-grid';
+
+  for (let r = seqRows - 1; r >= 0; r--) {
+    const pitch = rootMidi + r * 2; // scale intervals
+    const details = getNoteDetails(pitch);
+
+    for (let c = 0; c < seqCols; c++) {
+      const pad = document.createElement('div');
+      pad.className = `pad seq-pad ${seqGridState[r][c] ? 'active-step' : ''} ${c === currentStep && isPlaying ? 'current-playhead' : ''}`;
+      pad.innerHTML = `<span class="pad-note">${details.name}</span>`;
+
+      pad.addEventListener('click', () => {
+        seqGridState[r][c] = !seqGridState[r][c];
+        if (seqGridState[r][c]) playNote(pitch);
+        renderStepSeq();
+      });
+
+      grid.appendChild(pad);
+    }
+  }
+  viewContainer.appendChild(grid);
+}
+
+// SEQUENCER CLOCK
+function runSequencer() {
+  if (!isPlaying) return;
+
+  for (let r = 0; r < seqRows; r++) {
+    if (seqGridState[r][currentStep]) {
+      const pitch = rootMidi + r * 2;
+      playNote(pitch);
+      setTimeout(() => stopNote(pitch), 150);
+    }
+  }
+
+  if (currentMode === 'step') renderStepSeq();
+  currentStep = (currentStep + 1) % seqCols;
+
+  const stepTime = (60 / bpm / 4) * 1000;
+  timerId = setTimeout(runSequencer, stepTime);
+}
+
+// LISTENERS
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    currentMode = e.target.dataset.mode;
+    renderView();
   });
 });
 
+document.getElementById('playBtn').addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  const btn = document.getElementById('playBtn');
+  btn.innerText = isPlaying ? 'STOP' : 'PLAY';
+  if (isPlaying) {
+    currentStep = 0;
+    runSequencer();
+  } else {
+    clearTimeout(timerId);
+    renderView();
+  }
+});
+
+[rootSelect, document.getElementById('scaleSelect'), document.getElementById('offsetSelect')].forEach(el => {
+  el.addEventListener('change', () => {
+    currentScale = document.getElementById('scaleSelect').value;
+    rowOffset = parseInt(document.getElementById('offsetSelect').value);
+    renderView();
+  });
+});
+
+document.getElementById('bpm').addEventListener('change', (e) => bpm = parseInt(e.target.value));
+
+// Init
 initMIDI();
-renderGrid();
+renderView();
 </script>
 </body>
 </html>
