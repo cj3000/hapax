@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Hapax iPad Pro Workstation</title>
+  <title>Hapax 4-Track Workstation</title>
   <style>
     :root {
       --bg: #0d0e11;
@@ -16,6 +16,8 @@
       --border: #262a38;
       --linked-highlight: #ffe600;
       --track-active: #ff9900;
+      --mute: #e74c3c;
+      --solo: #f1c40f;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -63,29 +65,52 @@
       text-align: center;
     }
 
-    /* TOP TRACK BAR */
+    /* TRACK STRIP WITH MUTE / SOLO */
     .track-bar {
-      display: flex;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
       gap: 10px;
       margin-bottom: 12px;
     }
+    .track-strip {
+      display: flex;
+      background: #151720;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+    }
     .track-btn {
       flex: 1;
-      padding: 10px;
-      background: #1e212b;
-      border: 1px solid var(--border);
+      padding: 8px;
+      background: transparent;
+      border: none;
       color: var(--text);
       font-weight: bold;
-      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+    .track-strip.active {
+      border-color: var(--track-active);
+      background: #232734;
+    }
+    .track-strip.active .track-btn {
+      color: var(--track-active);
+    }
+    .ms-btn {
+      width: 26px;
+      background: #1a1c24;
+      border: none;
+      border-left: 1px solid var(--border);
+      color: #777;
+      font-size: 0.65rem;
+      font-weight: bold;
       cursor: pointer;
     }
-    .track-btn.active {
-      background: var(--track-active);
-      color: #000;
-      border-color: var(--track-active);
-    }
+    .ms-btn.muted { background: var(--mute); color: #fff; }
+    .ms-btn.soloed { background: var(--solo); color: #000; }
 
-    /* WORKSPACE LAYOUT (MAIN + SIDE PANEL) */
+    /* WORKSPACE LAYOUT */
     .workspace {
       display: flex;
       gap: 12px;
@@ -98,7 +123,7 @@
       width: 220px;
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 10px;
       background: #111217;
       padding: 10px;
       border-radius: 8px;
@@ -106,7 +131,7 @@
     }
 
     .panel-section-title {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: #8a94a6;
       text-transform: uppercase;
       letter-spacing: 1px;
@@ -123,8 +148,8 @@
       background: #1a1c24;
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 8px 4px;
-      font-size: 0.7rem;
+      padding: 6px 2px;
+      font-size: 0.68rem;
       border-radius: 4px;
       cursor: pointer;
       text-align: center;
@@ -238,9 +263,9 @@
       background: #1e212b;
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 5px;
+      padding: 4px;
       border-radius: 4px;
-      font-size: 0.8rem;
+      font-size: 0.75rem;
     }
   </style>
 </head>
@@ -248,30 +273,42 @@
 
 <div class="app-container">
   <header>
-    <h1>HAPAX // WORKSTATION</h1>
+    <h1>HAPAX // 4-TRACK WORKSTATION</h1>
     <div class="chord-display" id="chordDisplay">--</div>
     <div id="midiStatus" style="font-size: 0.75rem; color: var(--accent);">MIDI Init...</div>
   </header>
 
-  <!-- TRACK SELECTOR (4 TRACKS = 4 MIDI CHANNELS) -->
-  <div class="track-bar">
-    <button class="track-btn active" data-track="0">TRACK 1 (CH 1)</button>
-    <button class="track-btn" data-track="1">TRACK 2 (CH 2)</button>
-    <button class="track-btn" data-track="2">TRACK 3 (CH 3)</button>
-    <button class="track-btn" data-track="3">TRACK 4 (CH 4)</button>
-  </div>
+  <!-- TRACK BAR (4 INDEPENDENT TRACK STRIPS) -->
+  <div class="track-bar" id="trackBarContainer"></div>
 
   <div class="workspace">
     <!-- MAIN GRID CONTAINER -->
     <div class="main-view" id="viewContainer"></div>
 
-    <!-- SIDE PANEL (PAD-BASED CONTROLS) -->
+    <!-- SIDE PANEL (PAD-BASED CONTROLS FOR ACTIVE TRACK) -->
     <div class="side-panel">
+      <!-- MIDI CHANNEL SELECTOR -->
+      <div>
+        <div class="panel-section-title">MIDI Output Channel</div>
+        <select id="channelSelect" style="width:100%;">
+          <option value="0">Channel 1</option>
+          <option value="1">Channel 2</option>
+          <option value="2">Channel 3</option>
+          <option value="3">Channel 4</option>
+          <option value="4">Channel 5</option>
+          <option value="5">Channel 6</option>
+          <option value="6">Channel 7</option>
+          <option value="7">Channel 8</option>
+          <option value="8">Channel 9</option>
+          <option value="9">Channel 10 (Drums)</option>
+        </select>
+      </div>
+
       <!-- ENGINE MODE -->
       <div>
         <div class="panel-section-title">Engine Mode</div>
         <div class="pad-selector">
-          <div class="ctrl-pad active" data-type="mode" data-val="hex">HEX</div>
+          <div class="ctrl-pad" data-type="mode" data-val="hex">HEX</div>
           <div class="ctrl-pad" data-type="mode" data-val="square">PADS</div>
           <div class="ctrl-pad" data-type="mode" data-val="step" style="grid-column: span 2;">STEP SEQ</div>
         </div>
@@ -287,7 +324,7 @@
       <div>
         <div class="panel-section-title">Scale</div>
         <div class="pad-selector">
-          <div class="ctrl-pad active" data-type="scale" data-val="minor">m-Penta</div>
+          <div class="ctrl-pad" data-type="scale" data-val="minor">m-Penta</div>
           <div class="ctrl-pad" data-type="scale" data-val="major">M-Penta</div>
           <div class="ctrl-pad" data-type="scale" data-val="naturalMinor">Minor</div>
           <div class="ctrl-pad" data-type="scale" data-val="majorScale">Major</div>
@@ -300,20 +337,20 @@
       <div>
         <div class="panel-section-title">Row Interval</div>
         <div class="pad-selector">
-          <div class="ctrl-pad active" data-type="offset" data-val="5">+4th</div>
+          <div class="ctrl-pad" data-type="offset" data-val="5">+4th</div>
           <div class="ctrl-pad" data-type="offset" data-val="7">+5th</div>
           <div class="ctrl-pad" data-type="offset" data-val="3">+m3</div>
           <div class="ctrl-pad" data-type="offset" data-val="4">+M3</div>
         </div>
       </div>
 
-      <!-- MIDI DEVICE & BPM -->
+      <!-- GLOBAL TRANSPORT & MIDI DEVICE -->
       <div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px;">
         <label style="font-size:0.65rem; color:#8a94a6;">Device:
           <select id="midiOutputSelect" style="width:100%;"><option value="">Suche...</option></select>
         </label>
-        <div id="seqControls" style="display:none; gap: 6px; align-items: center;">
-          <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold; flex:1; padding:6px; border-radius:4px;">PLAY</button>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold; flex:1; padding:8px; border-radius:4px; border:none; cursor:pointer;">PLAY ALL</button>
           <input type="number" id="bpm" value="120" min="40" max="240" style="width: 45px;">
         </div>
       </div>
@@ -333,24 +370,41 @@ const SCALES = {
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 };
 
-// Global State
-let currentMode = 'hex';
-let activeTrack = 0; // MIDI Channel 0..3
-let rootMidi = 48; // C3
-let currentScale = 'minor';
-let rowOffset = 5;
+const seqRows = 8;
+const seqCols = 16;
+
+// TRACK STATE DATA MODEL (4 INDEPENDENT TRACKS)
+let activeTrackIdx = 0;
+let tracks = [
+  createTrackState(0, 0), // Track 1 -> MIDI Ch 1
+  createTrackState(1, 1), // Track 2 -> MIDI Ch 2
+  createTrackState(2, 2), // Track 3 -> MIDI Ch 3
+  createTrackState(3, 3)  // Track 4 -> MIDI Ch 4
+];
+
+function createTrackState(id, defaultCh) {
+  return {
+    id: id,
+    channel: defaultCh,
+    mode: 'hex',
+    rootMidi: 48, // C3
+    scale: 'minor',
+    rowOffset: 5,
+    muted: false,
+    soloed: false,
+    seqGridState: Array(seqRows).fill(null).map(() => Array(seqCols).fill(false)),
+    stepChance: Array(seqCols).fill(100)
+  };
+}
+
 let activeMidiOutput = null;
 let activePressedNotes = new Set();
 
-// Sequencer State
+// Sequencer Clock State
 let isPlaying = false;
 let currentStep = 0;
 let bpm = 120;
 let timerId = null;
-const seqRows = 8;
-const seqCols = 16;
-let seqGridState = Array(seqRows).fill(null).map(() => Array(seqCols).fill(false));
-let stepChance = Array(seqCols).fill(100);
 
 const viewContainer = document.getElementById('viewContainer');
 
@@ -358,14 +412,76 @@ const viewContainer = document.getElementById('viewContainer');
 const rootPadGrid = document.getElementById('rootPadGrid');
 NOTE_NAMES.forEach((note, idx) => {
   const pad = document.createElement('div');
-  pad.className = `ctrl-pad ${idx === 0 ? 'active' : ''}`;
+  pad.className = 'ctrl-pad';
   pad.dataset.type = 'root';
   pad.dataset.val = idx;
   pad.innerText = note;
   rootPadGrid.appendChild(pad);
 });
 
-// MIDI API
+// BUILD TRACK BAR STRIPS
+function renderTrackBar() {
+  const container = document.getElementById('trackBarContainer');
+  container.innerHTML = '';
+
+  tracks.forEach((t, idx) => {
+    const strip = document.createElement('div');
+    strip.className = `track-strip ${idx === activeTrackIdx ? 'active' : ''}`;
+
+    const btn = document.createElement('button');
+    btn.className = 'track-btn';
+    btn.innerText = `TRK ${idx + 1} [Ch ${t.channel + 1}]`;
+    btn.addEventListener('click', () => {
+      activeTrackIdx = idx;
+      renderTrackBar();
+      syncSidePanelUI();
+      renderView();
+    });
+
+    const muteBtn = document.createElement('button');
+    muteBtn.className = `ms-btn ${t.muted ? 'muted' : ''}`;
+    muteBtn.innerText = 'M';
+    muteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      t.muted = !t.muted;
+      renderTrackBar();
+    });
+
+    const soloBtn = document.createElement('button');
+    soloBtn.className = `ms-btn ${t.soloed ? 'soloed' : ''}`;
+    soloBtn.innerText = 'S';
+    soloBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      t.soloed = !t.soloed;
+      renderTrackBar();
+    });
+
+    strip.appendChild(btn);
+    strip.appendChild(muteBtn);
+    strip.appendChild(soloBtn);
+    container.appendChild(strip);
+  });
+}
+
+// SYNC SIDE PANEL BUTTONS WITH ACTIVE TRACK STATE
+function syncSidePanelUI() {
+  const t = tracks[activeTrackIdx];
+
+  document.getElementById('channelSelect').value = t.channel;
+
+  const updateSection = (type, val) => {
+    document.querySelectorAll(`.ctrl-pad[data-type="${type}"]`).forEach(p => {
+      p.classList.toggle('active', p.dataset.val == val);
+    });
+  };
+
+  updateSection('mode', t.mode);
+  updateSection('root', (t.rootMidi - 48) % 12);
+  updateSection('scale', t.scale);
+  updateSection('offset', t.rowOffset);
+}
+
+// MIDI ENGINE
 async function initMIDI() {
   if (navigator.requestMIDIAccess) {
     try {
@@ -397,53 +513,43 @@ document.getElementById('midiOutputSelect').addEventListener('change', (e) => {
   navigator.requestMIDIAccess().then(m => activeMidiOutput = m.outputs.get(e.target.value));
 });
 
-function getNoteDetails(midi) {
-  const name = NOTE_NAMES[midi % 12];
-  const octave = Math.floor(midi / 12) - 1;
-  const scaleIntervals = SCALES[currentScale];
-  const relativePitch = (midi - (rootMidi % 12) + 12) % 12;
-  
-  const isInScale = scaleIntervals.includes(relativePitch);
-  const isRoot = relativePitch === 0;
+function playNoteOnChannel(midiNote, channel) {
+  if (activeMidiOutput) {
+    activeMidiOutput.send([0x90 | channel, midiNote, 100]);
+  }
+}
 
-  return { name: `${name}${octave}`, midi, isInScale, isRoot };
+function stopNoteOnChannel(midiNote, channel) {
+  if (activeMidiOutput) {
+    activeMidiOutput.send([0x80 | channel, midiNote, 0]);
+  }
 }
 
 function playNote(midiNote) {
-  if (activeMidiOutput) {
-    activeMidiOutput.send([0x90 | activeTrack, midiNote, 100]);
-  }
+  const t = tracks[activeTrackIdx];
+  playNoteOnChannel(midiNote, t.channel);
   activePressedNotes.add(midiNote % 12);
   updateChordDisplay();
 }
 
 function stopNote(midiNote) {
-  if (activeMidiOutput) {
-    activeMidiOutput.send([0x80 | activeTrack, midiNote, 0]);
-  }
+  const t = tracks[activeTrackIdx];
+  stopNoteOnChannel(midiNote, t.channel);
   activePressedNotes.delete(midiNote % 12);
   updateChordDisplay();
 }
 
-// CHORD RECOGNITION ENGINE
+// CHORD RECOGNITION
 function updateChordDisplay() {
   const el = document.getElementById('chordDisplay');
-  if (activePressedNotes.size === 0) {
-    el.innerText = '--';
-    return;
-  }
+  if (activePressedNotes.size === 0) { el.innerText = '--'; return; }
 
   const notes = Array.from(activePressedNotes).sort((a, b) => a - b);
-  if (notes.length === 1) {
-    el.innerText = NOTE_NAMES[notes[0]];
-    return;
-  }
+  if (notes.length === 1) { el.innerText = NOTE_NAMES[notes[0]]; return; }
 
-  // Simple Chord Finder Strategy
   for (let root of notes) {
     const intervals = notes.map(n => (n - root + 12) % 12).sort((a, b) => a - b);
     const has = (i) => intervals.includes(i);
-
     const rootName = NOTE_NAMES[root];
 
     if (has(4) && has(7) && has(11)) { el.innerText = `${rootName} Maj7`; return; }
@@ -452,11 +558,20 @@ function updateChordDisplay() {
     if (has(4) && has(7)) { el.innerText = `${rootName} Maj`; return; }
     if (has(3) && has(7)) { el.innerText = `${rootName} Min`; return; }
     if (has(3) && has(6)) { el.innerText = `${rootName} Dim`; return; }
-    if (has(4) && has(8)) { el.innerText = `${rootName} Aug`; return; }
-    if (has(5) && has(7)) { el.innerText = `${rootName} Sus4`; return; }
   }
-
   el.innerText = NOTE_NAMES[notes[0]] + " ...";
+}
+
+function getNoteDetails(midi, track) {
+  const name = NOTE_NAMES[midi % 12];
+  const octave = Math.floor(midi / 12) - 1;
+  const scaleIntervals = SCALES[track.scale];
+  const relativePitch = (midi - (track.rootMidi % 12) + 12) % 12;
+  
+  const isInScale = scaleIntervals.includes(relativePitch);
+  const isRoot = relativePitch === 0;
+
+  return { name: `${name}${octave}`, midi, isInScale, isRoot };
 }
 
 // LINKED NOTE HIGHLIGHTS
@@ -470,18 +585,18 @@ function clearSameNoteHighlights() {
   document.querySelectorAll('.pad').forEach(p => p.classList.remove('same-note-highlight'));
 }
 
-// RENDER VIEWS
+// RENDER ACTIVE VIEW
 function renderView() {
   viewContainer.innerHTML = '';
-  document.getElementById('seqControls').style.display = currentMode === 'step' ? 'flex' : 'none';
+  const t = tracks[activeTrackIdx];
 
-  if (currentMode === 'hex') renderHexGrid();
-  else if (currentMode === 'square') renderSquareGrid();
-  else if (currentMode === 'step') renderStepSeq();
+  if (t.mode === 'hex') renderHexGrid(t);
+  else if (t.mode === 'square') renderSquareGrid(t);
+  else if (t.mode === 'step') renderStepSeq(t);
 }
 
 // 1. HEX GRID
-function renderHexGrid() {
+function renderHexGrid(t) {
   const wrapper = document.createElement('div');
   wrapper.className = 'hex-wrapper';
   const rows = 8, cols = 11;
@@ -491,8 +606,8 @@ function renderHexGrid() {
     rowEl.className = 'hex-row';
 
     for (let c = 0; c < cols; c++) {
-      const midiNote = rootMidi + (r * rowOffset) + c;
-      const details = getNoteDetails(midiNote);
+      const midiNote = t.rootMidi + (r * t.rowOffset) + c;
+      const details = getNoteDetails(midiNote, t);
 
       const pad = document.createElement('div');
       pad.className = `pad hex-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
@@ -508,15 +623,15 @@ function renderHexGrid() {
 }
 
 // 2. SQUARE GRID
-function renderSquareGrid() {
+function renderSquareGrid(t) {
   const grid = document.createElement('div');
   grid.className = 'square-grid';
   const rows = 8, cols = 16;
 
   for (let r = rows - 1; r >= 0; r--) {
     for (let c = 0; c < cols; c++) {
-      const midiNote = rootMidi + (r * rowOffset) + c;
-      const details = getNoteDetails(midiNote);
+      const midiNote = t.rootMidi + (r * t.rowOffset) + c;
+      const details = getNoteDetails(midiNote, t);
 
       const pad = document.createElement('div');
       pad.className = `pad square-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
@@ -552,27 +667,27 @@ function bindPadEvents(pad, midiNote) {
 }
 
 // 3. STEP SEQUENCER
-function renderStepSeq() {
+function renderStepSeq(t) {
   const wrapper = document.createElement('div');
   wrapper.className = 'seq-wrapper';
 
   for (let r = seqRows - 1; r >= 0; r--) {
     const rowEl = document.createElement('div');
     rowEl.className = 'seq-row';
-    const pitch = rootMidi + r * 2;
-    const details = getNoteDetails(pitch);
+    const pitch = t.rootMidi + r * 2;
+    const details = getNoteDetails(pitch, t);
 
     for (let c = 0; c < seqCols; c++) {
       const pad = document.createElement('div');
-      pad.className = `pad seq-pad ${seqGridState[r][c] ? 'active-step' : ''}`;
+      pad.className = `pad seq-pad ${t.seqGridState[r][c] ? 'active-step' : ''}`;
       pad.dataset.row = r;
       pad.dataset.col = c;
       pad.innerHTML = `<span class="pad-note">${details.name}</span>`;
 
       pad.addEventListener('click', () => {
-        seqGridState[r][c] = !seqGridState[r][c];
-        pad.classList.toggle('active-step', seqGridState[r][c]);
-        if (seqGridState[r][c]) {
+        t.seqGridState[r][c] = !t.seqGridState[r][c];
+        pad.classList.toggle('active-step', t.seqGridState[r][c]);
+        if (t.seqGridState[r][c]) {
           playNote(pitch);
           setTimeout(() => stopNote(pitch), 150);
         }
@@ -593,10 +708,10 @@ function renderStepSeq() {
       const opt = document.createElement('option');
       opt.value = val;
       opt.innerText = `${val}%`;
-      if (stepChance[c] === val) opt.selected = true;
+      if (t.stepChance[c] === val) opt.selected = true;
       select.appendChild(opt);
     });
-    select.addEventListener('change', (e) => stepChance[c] = parseInt(e.target.value));
+    select.addEventListener('change', (e) => t.stepChance[c] = parseInt(e.target.value));
     chanceRow.appendChild(select);
   }
   wrapper.appendChild(chanceRow);
@@ -604,9 +719,11 @@ function renderStepSeq() {
   viewContainer.appendChild(wrapper);
 }
 
-// SEQUENCER CLOCK
+// MULTI-TRACK SEQUENCER ENGINE
 function updatePlayheadUI(step) {
-  if (currentMode !== 'step') return;
+  const t = tracks[activeTrackIdx];
+  if (t.mode !== 'step') return;
+
   const allPads = document.querySelectorAll('.seq-pad');
   allPads.forEach(p => p.classList.remove('current-playhead'));
   allPads.forEach(p => {
@@ -617,51 +734,54 @@ function updatePlayheadUI(step) {
 function runSequencer() {
   if (!isPlaying) return;
 
-  if (Math.random() * 100 <= stepChance[currentStep]) {
-    for (let r = 0; r < seqRows; r++) {
-      if (seqGridState[r][currentStep]) {
-        const pitch = rootMidi + r * 2;
-        playNote(pitch);
-        setTimeout(() => stopNote(pitch), 150);
+  const anySolo = tracks.some(t => t.soloed);
+
+  // Play all active tracks in parallel
+  tracks.forEach(t => {
+    if (t.muted) return;
+    if (anySolo && !t.soloed) return;
+
+    if (Math.random() * 100 <= t.stepChance[currentStep]) {
+      for (let r = 0; r < seqRows; r++) {
+        if (t.seqGridState[r][currentStep]) {
+          const pitch = t.rootMidi + r * 2;
+          playNoteOnChannel(pitch, t.channel);
+          setTimeout(() => stopNoteOnChannel(pitch, t.channel), 150);
+        }
       }
     }
-  }
+  });
 
   updatePlayheadUI(currentStep);
   currentStep = (currentStep + 1) % seqCols;
   timerId = setTimeout(runSequencer, (60 / bpm / 4) * 1000);
 }
 
-// TRACK BUTTONS
-document.querySelectorAll('.track-btn').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    document.querySelectorAll('.track-btn').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active');
-    activeTrack = parseInt(e.target.dataset.track);
-  });
+// CONTROL LISTENERS
+document.getElementById('channelSelect').addEventListener('change', (e) => {
+  tracks[activeTrackIdx].channel = parseInt(e.target.value);
+  renderTrackBar();
 });
 
-// SIDE PANEL CONTROL PADS
 document.querySelectorAll('.ctrl-pad').forEach(pad => {
   pad.addEventListener('click', (e) => {
     const type = e.target.dataset.type;
     const val = e.target.dataset.val;
+    const t = tracks[activeTrackIdx];
 
-    document.querySelectorAll(`.ctrl-pad[data-type="${type}"]`).forEach(p => p.classList.remove('active'));
-    e.target.classList.add('active');
+    if (type === 'mode') t.mode = val;
+    if (type === 'root') t.rootMidi = 48 + parseInt(val);
+    if (type === 'scale') t.scale = val;
+    if (type === 'offset') t.rowOffset = parseInt(val);
 
-    if (type === 'mode') currentMode = val;
-    if (type === 'root') rootMidi = 48 + parseInt(val);
-    if (type === 'scale') currentScale = val;
-    if (type === 'offset') rowOffset = parseInt(val);
-
+    syncSidePanelUI();
     renderView();
   });
 });
 
 document.getElementById('playBtn').addEventListener('click', () => {
   isPlaying = !isPlaying;
-  document.getElementById('playBtn').innerText = isPlaying ? 'STOP' : 'PLAY';
+  document.getElementById('playBtn').innerText = isPlaying ? 'STOP' : 'PLAY ALL';
   if (isPlaying) {
     currentStep = 0;
     runSequencer();
@@ -675,6 +795,8 @@ document.getElementById('bpm').addEventListener('change', (e) => bpm = parseInt(
 
 // Init
 initMIDI();
+renderTrackBar();
+syncSidePanelUI();
 renderView();
 </script>
 </body>
