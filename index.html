@@ -365,4 +365,217 @@ function renderView() {
 
   if (currentMode === 'hex') renderHexGrid();
   else if (currentMode === 'square') renderSquareGrid();
-  else if (current
+  else if (currentMode === 'step') renderStepSeq();
+}
+
+// 1. EXTRA GROSSES HEX GRID (8 ROWS x 11 COLS FÜR GROSSE TASTEN)
+function renderHexGrid() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'hex-wrapper';
+  const rows = 8, cols = 11;
+
+  for (let r = rows - 1; r >= 0; r--) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'hex-row';
+
+    for (let c = 0; c < cols; c++) {
+      const midiNote = rootMidi + (r * rowOffset) + c;
+      const details = getNoteDetails(midiNote);
+
+      const pad = document.createElement('div');
+      pad.className = `pad hex-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
+      pad.dataset.midi = midiNote;
+      
+      pad.innerHTML = `<span class="pad-note">${details.name}</span><span class="pad-midi">${details.midi}</span>`;
+
+      bindPadEvents(pad, midiNote);
+      rowEl.appendChild(pad);
+    }
+    wrapper.appendChild(rowEl);
+  }
+  viewContainer.appendChild(wrapper);
+}
+
+// 2. SQUARE PAD GRID (16 SPALTEN x 8 REIHEN)
+function renderSquareGrid() {
+  const grid = document.createElement('div');
+  grid.className = 'square-grid';
+  const rows = 8, cols = 16;
+
+  for (let r = rows - 1; r >= 0; r--) {
+    for (let c = 0; c < cols; c++) {
+      const midiNote = rootMidi + (r * rowOffset) + c;
+      const details = getNoteDetails(midiNote);
+
+      const pad = document.createElement('div');
+      pad.className = `pad square-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
+      pad.dataset.midi = midiNote;
+      
+      pad.innerHTML = `<span class="pad-note">${details.name}</span><span class="pad-midi">${details.midi}</span>`;
+
+      bindPadEvents(pad, midiNote);
+      grid.appendChild(pad);
+    }
+  }
+  viewContainer.appendChild(grid);
+}
+
+function bindPadEvents(pad, midiNote) {
+  const start = (e) => {
+    e.preventDefault();
+    pad.classList.add('playing');
+    highlightSameNotes(midiNote);
+    playNote(midiNote);
+  };
+
+  const end = (e) => {
+    e.preventDefault();
+    pad.classList.remove('playing');
+    clearSameNoteHighlights();
+    stopNote(midiNote);
+  };
+
+  pad.addEventListener('touchstart', start);
+  pad.addEventListener('touchend', end);
+  pad.addEventListener('mousedown', start);
+  pad.addEventListener('mouseup', end);
+}
+
+// 3. STEP SEQUENCER (MIT NOTE-OFF FIX & CHANCE PRO STEP)
+function renderStepSeq() {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'seq-wrapper';
+
+  for (let r = seqRows - 1; r >= 0; r--) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'seq-row';
+    const pitch = rootMidi + r * 2;
+    const details = getNoteDetails(pitch);
+
+    for (let c = 0; c < seqCols; c++) {
+      const pad = document.createElement('div');
+      pad.className = `pad seq-pad ${seqGridState[r][c] ? 'active-step' : ''}`;
+      pad.dataset.row = r;
+      pad.dataset.col = c;
+      pad.innerHTML = `<span class="pad-note">${details.name}</span>`;
+
+      pad.addEventListener('click', () => {
+        seqGridState[r][c] = !seqGridState[r][c];
+        pad.classList.toggle('active-step', seqGridState[r][c]);
+        
+        // VORSCHAU MIT AUTOMATISCHEM NOTE-OFF
+        if (seqGridState[r][c]) {
+          playNote(pitch);
+          setTimeout(() => stopNote(pitch), 150);
+        }
+      });
+
+      rowEl.appendChild(pad);
+    }
+    wrapper.appendChild(rowEl);
+  }
+
+  // CHANCE CONTROL LEISTE
+  const chanceRow = document.createElement('div');
+  chanceRow.className = 'chance-row';
+  for (let c = 0; c < seqCols; c++) {
+    const select = document.createElement('select');
+    select.className = 'chance-select';
+    [100, 75, 50, 25, 0].forEach(val => {
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.innerText = `${val}%`;
+      if (stepChance[c] === val) opt.selected = true;
+      select.appendChild(opt);
+    });
+
+    select.addEventListener('change', (e) => {
+      stepChance[c] = parseInt(e.target.value);
+    });
+
+    chanceRow.appendChild(select);
+  }
+  wrapper.appendChild(chanceRow);
+
+  viewContainer.appendChild(wrapper);
+}
+
+// UPDATE PLAYHEAD UI
+function updatePlayheadUI(step) {
+  if (currentMode !== 'step') return;
+  
+  const allPads = document.querySelectorAll('.seq-pad');
+  allPads.forEach(p => p.classList.remove('current-playhead'));
+
+  allPads.forEach(p => {
+    if (parseInt(p.dataset.col) === step) {
+      p.classList.add('current-playhead');
+    }
+  });
+}
+
+// SEQUENCER CLOCK (MIT CHANCE / RANDOM PRÜFUNG)
+function runSequencer() {
+  if (!isPlaying) return;
+
+  const currentProb = stepChance[currentStep];
+  const randomRoll = Math.random() * 100;
+
+  // Nur abspielen, wenn der Zufallswert unter der eingestellten Chance liegt
+  if (randomRoll <= currentProb) {
+    for (let r = 0; r < seqRows; r++) {
+      if (seqGridState[r][currentStep]) {
+        const pitch = rootMidi + r * 2;
+        playNote(pitch);
+        setTimeout(() => stopNote(pitch), 150);
+      }
+    }
+  }
+
+  updatePlayheadUI(currentStep);
+
+  currentStep = (currentStep + 1) % seqCols;
+  const stepTime = (60 / bpm / 4) * 1000;
+  timerId = setTimeout(runSequencer, stepTime);
+}
+
+// LISTENERS
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    currentMode = e.target.dataset.mode;
+    renderView();
+  });
+});
+
+document.getElementById('playBtn').addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  const btn = document.getElementById('playBtn');
+  btn.innerText = isPlaying ? 'STOP' : 'PLAY';
+  if (isPlaying) {
+    currentStep = 0;
+    runSequencer();
+  } else {
+    clearTimeout(timerId);
+    const allPads = document.querySelectorAll('.seq-pad');
+    allPads.forEach(p => p.classList.remove('current-playhead'));
+  }
+});
+
+[rootSelect, document.getElementById('scaleSelect'), document.getElementById('offsetSelect')].forEach(el => {
+  el.addEventListener('change', () => {
+    currentScale = document.getElementById('scaleSelect').value;
+    rowOffset = parseInt(document.getElementById('offsetSelect').value);
+    renderView();
+  });
+});
+
+document.getElementById('bpm').addEventListener('change', (e) => bpm = parseInt(e.target.value));
+
+// Init
+initMIDI();
+renderView();
+</script>
+</body>
+</html>
