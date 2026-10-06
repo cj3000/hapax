@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Hapax Workstation - Advanced Engine</title>
+  <title>Hapax Workstation - Background Engine & Recording</title>
   <style>
     :root {
       --bg: #0d0e11;
@@ -18,7 +18,8 @@
       --track-active: #ff9900;
       --mute: #e74c3c;
       --solo: #f1c40f;
-      --hex-size: 60px; /* Dynamisch steuerbar */
+      --hex-size: 80px; /* ~3/4 Position */
+      --drum-marker: #3a2212;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -225,6 +226,7 @@
       border-radius: 5px;
       font-size: 0.65rem;
     }
+    .seq-pad.drum-beat { background: var(--drum-marker); border-color: #583318; }
     .seq-pad.active-step { background: var(--accent); color: #000; font-weight: bold; }
     .seq-pad.current-playhead { border: 2px solid #fff; box-shadow: 0 0 10px #fff; }
 
@@ -251,6 +253,29 @@
     }
     .page-btn.active-page { background: var(--accent); color: #000; }
     .page-btn.playing-page { border-color: #fff; box-shadow: 0 0 6px #fff; }
+
+    .toggle-btn {
+      background: #1e212b;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.68rem;
+      padding: 5px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      text-align: center;
+    }
+    .toggle-btn.active {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+    }
+    .toggle-btn.rec-active {
+      background: #ff0055;
+      color: #fff;
+      border-color: #ff0055;
+      box-shadow: 0 0 8px #ff0055;
+    }
 
     .chance-row {
       display: flex;
@@ -327,10 +352,20 @@
 
     <div class="side-panel">
 
-      <!-- HEX ZOOM SLIDER (TEMPORÄR) -->
+      <!-- HEX ZOOM SLIDER (~3/4 Position DEFAULT) -->
       <div style="background: #181b24; padding: 6px; border-radius: 6px; border: 1px solid var(--accent);">
         <div class="panel-section-title" style="color:var(--accent);">Hex Pad Size (Zoom)</div>
-        <input type="range" id="hexZoomSlider" min="35" max="100" value="60" style="width: 100%;">
+        <input type="range" id="hexZoomSlider" min="35" max="100" value="80" style="width: 100%;">
+      </div>
+
+      <!-- PERFORMANCE CONTROLS (SLIDE / HOLD / REC) -->
+      <div>
+        <div class="panel-section-title">Performance Controls</div>
+        <div style="display: flex; gap: 4px;">
+          <button class="toggle-btn" id="slideToggleBtn" style="flex:1;">Slide: OFF</button>
+          <button class="toggle-btn" id="holdToggleBtn" style="flex:1;">Hold: OFF</button>
+          <button class="toggle-btn" id="recToggleBtn" style="flex:1;">REC: OFF</button>
+        </div>
       </div>
 
       <!-- PRESET STORAGE SLOTS -->
@@ -383,7 +418,6 @@
           <option value="maj">Major Triad</option>
           <option value="min">Minor Triad</option>
           <option value="dom7">Dominant 7th</option>
-
           <option value="maj7">Major 7th</option>
           <option value="min7">Minor 7th</option>
           <option value="sus4">Sus4</option>
@@ -428,7 +462,7 @@
       </div>
 
       <div style="margin-top: auto; display: flex; gap: 6px; align-items: center; padding-top: 10px;">
-        <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold; flex:1; padding:8px; border-radius:4px; border:none; cursor:pointer;">PLAY ALL</button>
+        <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold; flex:1; padding:8px; border-radius:4px; border:none; cursor:pointer;">PLAY ALL (Space)</button>
         <input type="number" id="bpm" value="120" min="40" max="240" style="width: 45px;">
       </div>
     </div>
@@ -464,7 +498,13 @@ const maxSeqSteps = 64;
 let midiAccessRef = null;
 let activeTrackIdx = 0;
 let activeSlotIdx = 0;
-let currentSeqPage = 0; // 0..3 (1-16, 17-32, 33-48, 49-64)
+let currentSeqPage = 0;
+
+let slideEnabled = false;
+let holdEnabled = false;
+let recEnabled = false;
+let isMouseDown = false;
+let isFollowMode = true;
 
 let tracks = [
   createTrackState(0, 0),
@@ -484,7 +524,7 @@ function createTrackState(id, defaultCh) {
     rowOffset: 5,
     muted: false,
     soloed: false,
-    length: 16, // Polyrhythm length (2..64)
+    length: 16,
     chordMode: 'single',
     arpMode: 'off',
     currentStep: 0,
@@ -494,15 +534,61 @@ function createTrackState(id, defaultCh) {
 }
 
 let activePressedNotes = new Set();
+let heldNotesList = new Set();
 let isPlaying = false;
-let globalStep = 0;
 let bpm = 120;
-let timerId = null;
 let arpTimerId = null;
 let currentArpIndex = 0;
 let currentArpNotes = [];
 
+// WEB WORKER & WEB AUDIO API CLOCK FOR BACKGROUND TIMING
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let nextStepTime = 0.0;
+const scheduleAheadTime = 0.1;
+
+const workerCode = `
+  let timerId = null;
+  let interval = 25; // High precision tick check (25ms)
+
+  self.onmessage = function(e) {
+    if (e.data === "start") {
+      if (!timerId) timerId = setInterval(() => self.postMessage("tick"), interval);
+    } else if (e.data === "stop") {
+      if (timerId) { clearInterval(timerId); timerId = null; }
+    }
+  };
+`;
+
+const blob = new Blob([workerCode], { type: "application/javascript" });
+const timerWorker = new Worker(URL.createObjectURL(blob));
+
+timerWorker.onmessage = function(e) {
+  if (e.data === "tick" && isPlaying) {
+    scheduler();
+  }
+};
+
+function scheduler() {
+  while (nextStepTime < audioCtx.currentTime + scheduleAheadTime) {
+    triggerSequencerStep();
+    const secondsPerBeat = 60.0 / bpm;
+    nextStepTime += 0.25 * secondsPerBeat; // 16th notes
+  }
+}
+
 const viewContainer = document.getElementById('viewContainer');
+
+// MOUSE DRAG / SLIDE TRACKING
+document.body.addEventListener('mousedown', () => isMouseDown = true);
+document.body.addEventListener('mouseup', () => isMouseDown = false);
+
+// GLOBAL KEYBOARD SHORTCUT (SPACEBAR FOR PLAY/STOP)
+document.addEventListener('keydown', (e) => {
+  if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
+    e.preventDefault();
+    togglePlayStop();
+  }
+});
 
 // BUILD TRACK LENGTH SELECTOR (2..64)
 const trackLengthSelect = document.getElementById('trackLengthSelect');
@@ -536,6 +622,29 @@ NOTE_NAMES.forEach((note, idx) => {
 // HEX ZOOM CONTROLLER
 document.getElementById('hexZoomSlider').addEventListener('input', (e) => {
   document.documentElement.style.setProperty('--hex-size', `${e.target.value}px`);
+});
+
+// PERFORMANCE TOGGLES
+document.getElementById('slideToggleBtn').addEventListener('click', (e) => {
+  slideEnabled = !slideEnabled;
+  e.target.classList.toggle('active', slideEnabled);
+  e.target.innerText = `Slide: ${slideEnabled ? 'ON' : 'OFF'}`;
+});
+
+document.getElementById('holdToggleBtn').addEventListener('click', (e) => {
+  holdEnabled = !holdEnabled;
+  e.target.classList.toggle('active', holdEnabled);
+  e.target.innerText = `Hold: ${holdEnabled ? 'ON' : 'OFF'}`;
+  if (!holdEnabled) {
+    heldNotesList.forEach(n => stopNoteWithChord(n));
+    heldNotesList.clear();
+  }
+});
+
+document.getElementById('recToggleBtn').addEventListener('click', (e) => {
+  recEnabled = !recEnabled;
+  e.target.classList.toggle('rec-active', recEnabled);
+  e.target.innerText = `REC: ${recEnabled ? 'ON' : 'OFF'}`;
 });
 
 // STORAGE ENGINE
@@ -754,10 +863,26 @@ function sendMidiMessage(track, statusByte, note, velocity) {
 function playTrackNote(track, midiNote) { sendMidiMessage(track, 0x90, midiNote, 100); }
 function stopTrackNote(track, midiNote) { sendMidiMessage(track, 0x80, midiNote, 0); }
 
+// REALTIME STEP RECORDING LOGIC
+function recordNoteToCurrentStep(midiNote) {
+  if (!recEnabled || !isPlaying) return;
+  const t = tracks[activeTrackIdx];
+  const step = t.currentStep;
+  const rowIndex = Math.floor((midiNote - t.rootMidi) / 2);
+
+  if (rowIndex >= 0 && rowIndex < seqRows) {
+    t.seqGridState[rowIndex][step] = true;
+    autoSaveCurrentState();
+    if (t.mode === 'step') renderView();
+  }
+}
+
 // CHORD & PAD PLAYING LOGIC
 function playNoteWithChord(midiNote) {
   const t = tracks[activeTrackIdx];
   const intervals = CHORD_FORMULAS[t.chordMode || 'single'];
+
+  recordNoteToCurrentStep(midiNote);
 
   if (t.arpMode && t.arpMode !== 'off') {
     startArpeggiator(t, midiNote, intervals);
@@ -768,6 +893,7 @@ function playNoteWithChord(midiNote) {
       activePressedNotes.add(targetNote % 12);
     });
   }
+  highlightChordPads(midiNote, intervals);
   updateChordDisplay();
 }
 
@@ -784,7 +910,20 @@ function stopNoteWithChord(midiNote) {
       activePressedNotes.delete(targetNote % 12);
     });
   }
+  clearSameNoteHighlights();
   updateChordDisplay();
+}
+
+function highlightChordPads(rootMidi, intervals) {
+  clearSameNoteHighlights();
+  intervals.forEach(interval => {
+    const targetMidi = rootMidi + interval;
+    document.querySelectorAll('.pad').forEach(p => {
+      if (parseInt(p.dataset.midi) === targetMidi) {
+        p.classList.add('same-note-highlight');
+      }
+    });
+  });
 }
 
 // ARPEGGIATOR ENGINE
@@ -854,12 +993,6 @@ function getNoteDetails(midi, track) {
   return { name: `${name}${octave}`, midi, isInScale, isRoot };
 }
 
-function highlightSameNotes(targetMidi) {
-  document.querySelectorAll('.pad').forEach(p => {
-    if (parseInt(p.dataset.midi) === targetMidi) p.classList.add('same-note-highlight');
-  });
-}
-
 function clearSameNoteHighlights() {
   document.querySelectorAll('.pad').forEach(p => p.classList.remove('same-note-highlight'));
 }
@@ -922,32 +1055,61 @@ function renderSquareGrid(t) {
 }
 
 function bindPadEvents(pad, midiNote) {
-  const start = (e) => {
-    e.preventDefault();
-    pad.classList.add('playing');
-    highlightSameNotes(midiNote);
-    playNoteWithChord(midiNote);
+  const triggerStart = () => {
+    if (holdEnabled) {
+      if (heldNotesList.has(midiNote)) {
+        heldNotesList.delete(midiNote);
+        stopNoteWithChord(midiNote);
+        pad.classList.remove('playing');
+      } else {
+        heldNotesList.add(midiNote);
+        playNoteWithChord(midiNote);
+        pad.classList.add('playing');
+      }
+    } else {
+      pad.classList.add('playing');
+      playNoteWithChord(midiNote);
+    }
   };
 
-  const end = (e) => {
-    e.preventDefault();
-    pad.classList.remove('playing');
-    clearSameNoteHighlights();
-    stopNoteWithChord(midiNote);
+  const triggerEnd = () => {
+    if (!holdEnabled) {
+      pad.classList.remove('playing');
+      stopNoteWithChord(midiNote);
+    }
   };
 
-  pad.addEventListener('touchstart', start);
-  pad.addEventListener('touchend', end);
-  pad.addEventListener('mousedown', start);
-  pad.addEventListener('mouseup', end);
+  pad.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    triggerStart();
+  });
+
+  pad.addEventListener('mouseenter', (e) => {
+    if (slideEnabled && isMouseDown) {
+      e.preventDefault();
+      triggerStart();
+    }
+  });
+
+  pad.addEventListener('mouseleave', (e) => {
+    if (slideEnabled && isMouseDown) {
+      e.preventDefault();
+      triggerEnd();
+    }
+  });
+
+  pad.addEventListener('mouseup', (e) => {
+    e.preventDefault();
+    triggerEnd();
+  });
 }
 
-// 64-STEP SEQUENCER WITH ELEKTRON PAGE NAV
+// 64-STEP SEQUENCER WITH DRUM HIGHLIGHT & FOLLOW MODE
 function renderStepSeq(t) {
   const wrapper = document.createElement('div');
   wrapper.className = 'seq-wrapper';
 
-  // ELEKTRON PAGE BUTTONS (1-16, 17-32, 33-48, 49-64)
+  // ELEKTRON PAGE NAV BAR & FOLLOW TOGGLE
   const navBar = document.createElement('div');
   navBar.className = 'seq-nav-bar';
 
@@ -956,6 +1118,15 @@ function renderStepSeq(t) {
   title.style.fontWeight = 'bold';
   title.innerText = `Track ${activeTrackIdx + 1} (${t.length} Steps)`;
   navBar.appendChild(title);
+
+  const followBtn = document.createElement('button');
+  followBtn.className = `page-btn ${isFollowMode ? 'active-page' : ''}`;
+  followBtn.innerText = `FOLLOW: ${isFollowMode ? 'ON' : 'OFF'}`;
+  followBtn.addEventListener('click', () => {
+    isFollowMode = !isFollowMode;
+    renderView();
+  });
+  navBar.appendChild(followBtn);
 
   const btnGroup = document.createElement('div');
   btnGroup.className = 'page-btn-group';
@@ -976,7 +1147,7 @@ function renderStepSeq(t) {
   navBar.appendChild(btnGroup);
   wrapper.appendChild(navBar);
 
-  // STEP MATRIX FOR CURRENT VISIBLE PAGE
+  // STEP MATRIX
   const startStep = currentSeqPage * 16;
   const endStep = Math.min(startStep + 16, t.length);
 
@@ -987,8 +1158,9 @@ function renderStepSeq(t) {
     const details = getNoteDetails(pitch, t);
 
     for (let c = startStep; c < endStep; c++) {
+      const isDrumBeat = (c % 16 === 0 || c % 16 === 4 || c % 16 === 8 || c % 16 === 12); // Steps 1, 5, 9, 13
       const pad = document.createElement('div');
-      pad.className = `pad seq-pad ${t.seqGridState[r][c] ? 'active-step' : ''}`;
+      pad.className = `pad seq-pad ${isDrumBeat ? 'drum-beat' : ''} ${t.seqGridState[r][c] ? 'active-step' : ''}`;
       pad.dataset.row = r;
       pad.dataset.col = c;
       pad.innerHTML = `<span class="pad-note">${details.name}</span>`;
@@ -1008,7 +1180,7 @@ function renderStepSeq(t) {
     wrapper.appendChild(rowEl);
   }
 
-  // CHANCE ROW FOR VISIBLE STEPS
+  // CHANCE ROW
   const chanceRow = document.createElement('div');
   chanceRow.className = 'chance-row';
   for (let c = startStep; c < endStep; c++) {
@@ -1039,12 +1211,17 @@ function updatePlayheadUI() {
   const currentTrackStep = t.currentStep;
   const activePageOfPlayhead = Math.floor(currentTrackStep / 16);
 
-  // Highlight page buttons
+  // AUTO-FOLLOW PAGE SWITCHING
+  if (isFollowMode && activePageOfPlayhead !== currentSeqPage) {
+    currentSeqPage = activePageOfPlayhead;
+    renderView();
+    return;
+  }
+
   document.querySelectorAll('.page-btn').forEach(btn => {
     btn.classList.toggle('playing-page', parseInt(btn.dataset.page) === activePageOfPlayhead);
   });
 
-  // Highlight active step pad
   const allPads = document.querySelectorAll('.seq-pad');
   allPads.forEach(p => p.classList.remove('current-playhead'));
   allPads.forEach(p => {
@@ -1052,25 +1229,27 @@ function updatePlayheadUI() {
   });
 }
 
-// POLYRHYTHMIC SEQUENCER ENGINE
-function runSequencer() {
-  if (!isPlaying) return;
-
+// POLYRHYTHMIC SEQUENCER ENGINE TRIGGER
+function triggerSequencerStep() {
   const anySolo = tracks.some(t => t.soloed);
 
   tracks.forEach(t => {
-    if (t.muted) return;
-    if (anySolo && !t.soloed) return;
+    if (t.muted || (anySolo && !t.soloed)) return;
 
-    // Polyrhythmik Step Calculation: Every track increments modulo its OWN length
-    const step = t.currentStep;
+    // Follow Mode vs. Page Loop Calculation
+    let step = t.currentStep;
+    if (!isFollowMode && t.mode === 'step') {
+      const start = currentSeqPage * 16;
+      const end = Math.min(start + 16, t.length);
+      step = start + (t.currentStep % (end - start));
+    }
 
     if (Math.random() * 100 <= t.stepChance[step]) {
       for (let r = 0; r < seqRows; r++) {
         if (t.seqGridState[r][step]) {
           const pitch = t.rootMidi + r * 2;
           playTrackNote(t, pitch);
-          setTimeout(() => stopTrackNote(t, pitch), 150);
+          setTimeout(() => stopTrackNote(t, pitch), 120);
         }
       }
     }
@@ -1078,11 +1257,25 @@ function runSequencer() {
     t.currentStep = (t.currentStep + 1) % t.length;
   });
 
-  updatePlayheadUI();
-  timerId = setTimeout(runSequencer, (60 / bpm / 4) * 1000);
+  requestAnimationFrame(updatePlayheadUI);
 }
 
-// LISTENERS FOR NEW CONTROLS
+function togglePlayStop() {
+  isPlaying = !isPlaying;
+  document.getElementById('playBtn').innerText = isPlaying ? 'STOP (Space)' : 'PLAY ALL (Space)';
+  
+  if (isPlaying) {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    tracks.forEach(t => t.currentStep = 0);
+    nextStepTime = audioCtx.currentTime;
+    timerWorker.postMessage("start");
+  } else {
+    timerWorker.postMessage("stop");
+    updatePlayheadUI();
+  }
+}
+
+// LISTENERS FOR SIDE-PANEL CONTROLS
 document.getElementById('trackMidiOutputSelect').addEventListener('change', (e) => {
   tracks[activeTrackIdx].outputDeviceId = e.target.value;
   autoSaveCurrentState();
@@ -1131,17 +1324,7 @@ document.querySelectorAll('.ctrl-pad').forEach(pad => {
   });
 });
 
-document.getElementById('playBtn').addEventListener('click', () => {
-  isPlaying = !isPlaying;
-  document.getElementById('playBtn').innerText = isPlaying ? 'STOP' : 'PLAY ALL';
-  if (isPlaying) {
-    tracks.forEach(t => t.currentStep = 0);
-    runSequencer();
-  } else {
-    clearTimeout(timerId);
-    updatePlayheadUI();
-  }
-});
+document.getElementById('playBtn').addEventListener('click', togglePlayStop);
 
 document.getElementById('bpm').addEventListener('change', (e) => {
   bpm = parseInt(e.target.value);
