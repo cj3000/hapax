@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hapax Isomorphic Grid</title>
+  <title>Hapax Hex Grid</title>
   <style>
     :root {
       --bg: #111215;
@@ -11,6 +11,7 @@
       --accent: #00f0ff;
       --root-note: #ff0055;
       --scale-note: #2d3245;
+      --out-scale: #161822;
       --text: #e0e6ed;
       --border: #2a2e3d;
     }
@@ -19,14 +20,14 @@
       background-color: var(--bg);
       color: var(--text);
       margin: 0;
-      padding: 15px;
+      padding: 10px;
       display: flex;
       flex-direction: column;
       align-items: center;
     }
     .app-container {
       width: 100%;
-      max-width: 600px;
+      max-width: 650px;
       background: var(--card);
       border-radius: 12px;
       border: 1px solid var(--border);
@@ -38,48 +39,58 @@
       justify-content: space-between;
       align-items: center;
       border-bottom: 1px solid var(--border);
-      padding-bottom: 12px;
-      margin-bottom: 15px;
+      padding-bottom: 10px;
+      margin-bottom: 12px;
     }
-    h1 { margin: 0; font-size: 1.2rem; color: var(--accent); letter-spacing: 1px; }
+    h1 { margin: 0; font-size: 1.1rem; color: var(--accent); letter-spacing: 1px; }
     
     .panel {
       background: #15161c;
-      padding: 12px;
+      padding: 10px;
       border-radius: 8px;
-      margin-bottom: 15px;
+      margin-bottom: 12px;
       border: 1px solid var(--border);
     }
     .controls-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
     }
-    label { font-size: 0.75rem; color: #8a94a6; display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 0.7rem; color: #8a94a6; display: flex; flex-direction: column; gap: 3px; }
     select, input {
       background: #222531;
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 6px;
+      padding: 5px;
       border-radius: 6px;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
 
-    /* ISOMORPHIC GRID */
-    .iso-grid {
-      display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 6px;
-      background: #0d0e11;
-      padding: 10px;
+    /* HEXAGON WABEN GRID */
+    .hex-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #0b0c0e;
+      padding: 15px 5px;
       border-radius: 8px;
+      overflow-x: auto;
       touch-action: manipulation;
     }
+    .hex-row {
+      display: flex;
+      margin-bottom: -12px; /* Vertikales Ineinandergreifen */
+    }
+    .hex-row:nth-child(even) {
+      transform: translateX(23px); /* Einrücken jeder 2. Zeile für Wabenmuster */
+    }
     .pad {
-      background: #1c1f2b;
-      border: 1px solid #2a2e3d;
-      border-radius: 6px;
-      aspect-ratio: 1;
+      width: 44px;
+      height: 50px;
+      margin: 0 2px;
+      background: var(--out-scale);
+      /* Hexagon Geometrie über CSS Clip-Path */
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
       cursor: pointer;
       display: flex;
       flex-direction: column;
@@ -91,27 +102,25 @@
     .pad:active, .pad.playing {
       background: var(--accent) !important;
       color: #000 !important;
-      transform: scale(0.95);
+      transform: scale(0.92);
     }
     .pad.in-scale {
       background: var(--scale-note);
-      border-color: #3d445c;
     }
     .pad.is-root {
       background: var(--root-note);
       color: #fff;
       font-weight: bold;
-      border-color: #ff5588;
     }
-    .pad-note { font-size: 0.8rem; font-weight: bold; }
-    .pad-midi { font-size: 0.6rem; opacity: 0.6; margin-top: 2px; }
+    .pad-note { font-size: 0.75rem; font-weight: bold; pointer-events: none; }
+    .pad-midi { font-size: 0.55rem; opacity: 0.6; margin-top: 1px; pointer-events: none; }
   </style>
 </head>
 <body>
 
 <div class="app-container">
   <header>
-    <h1>HAPAX // LIVE GRID</h1>
+    <h1>HAPAX // HEX GRID</h1>
     <div id="midiStatus" style="font-size: 0.75rem; color: var(--accent);">MIDI Init...</div>
   </header>
 
@@ -141,11 +150,12 @@
           <option value="chromatic">Chromatic (All)</option>
         </select>
       </label>
-      <label>Grid Layout (Sprung):
+      <label>Hex-Intervall (Reihe):
         <select id="offsetSelect">
           <option value="5" selected>4ths (Standard / Hapax)</option>
-          <option value="7">5ths (Gitarre/Violine)</option>
-          <option value="12">Octaves</option>
+          <option value="7">5ths (Gitarre)</option>
+          <option value="3">Minor 3rd</option>
+          <option value="4">Major 3rd</option>
         </select>
       </label>
       <label>Oktav-Offset:
@@ -154,12 +164,11 @@
     </div>
   </div>
 
-  <!-- ISOMORPHIC GRID -->
-  <div id="isoGrid" class="iso-grid"></div>
+  <!-- HEXAGON GRID -->
+  <div id="hexGrid" class="hex-wrapper"></div>
 </div>
 
 <script>
-// --- NOTE NAMES & SCALES ---
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 const SCALES = {
@@ -171,17 +180,14 @@ const SCALES = {
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 };
 
-// State
 let rootMidi = 48; // C3
 let currentScale = 'minor';
-let rowOffset = 5; // 4th interval offset per row
+let rowOffset = 5;
 let activeMidiOutput = null;
 
-// DOM
-const gridEl = document.getElementById('isoGrid');
+const gridEl = document.getElementById('hexGrid');
 const rootSelect = document.getElementById('rootSelect');
 
-// Populate Root Note Selector
 NOTE_NAMES.forEach((note, idx) => {
   const opt = document.createElement('option');
   opt.value = idx;
@@ -190,7 +196,7 @@ NOTE_NAMES.forEach((note, idx) => {
   rootSelect.appendChild(opt);
 });
 
-// MIDI SETUP
+// MIDI
 async function initMIDI() {
   if (navigator.requestMIDIAccess) {
     try {
@@ -222,7 +228,6 @@ document.getElementById('midiOutputSelect').addEventListener('change', (e) => {
   navigator.requestMIDIAccess().then(m => activeMidiOutput = m.outputs.get(e.target.value));
 });
 
-// Helper: Get Note Info
 function getNoteDetails(midi) {
   const name = NOTE_NAMES[midi % 12];
   const octave = Math.floor(midi / 12) - 1;
@@ -235,33 +240,34 @@ function getNoteDetails(midi) {
   return { name: `${name}${octave}`, midi, isInScale, isRoot };
 }
 
-// Send MIDI Note
 function playNote(midiNote) {
   if (activeMidiOutput) {
     const ch = parseInt(document.getElementById('midiChannel').value);
-    activeMidiOutput.send([0x90 | ch, midiNote, 100]); // Note On
+    activeMidiOutput.send([0x90 | ch, midiNote, 100]);
   }
 }
 
 function stopNote(midiNote) {
   if (activeMidiOutput) {
     const ch = parseInt(document.getElementById('midiChannel').value);
-    activeMidiOutput.send([0x80 | ch, midiNote, 0]); // Note Off
+    activeMidiOutput.send([0x80 | ch, midiNote, 0]);
   }
 }
 
-// Render Isomorphic Grid
+// Render Hexagon Grid
 function renderGrid() {
   gridEl.innerHTML = '';
   const baseOctave = parseInt(document.getElementById('octaveShift').value);
   const rootNoteIndex = parseInt(rootSelect.value);
   rootMidi = (baseOctave + 1) * 12 + rootNoteIndex;
 
-  const rows = 8;
-  const cols = 8;
+  const rows = 7;
+  const cols = 9;
 
-  // Render from Top (high notes) to Bottom (low notes)
   for (let r = rows - 1; r >= 0; r--) {
+    const rowEl = document.createElement('div');
+    rowEl.className = 'hex-row';
+
     for (let c = 0; c < cols; c++) {
       const midiNote = rootMidi + (r * rowOffset) + c;
       const details = getNoteDetails(midiNote);
@@ -274,7 +280,6 @@ function renderGrid() {
         <span class="pad-midi">${details.midi}</span>
       `;
 
-      // Touch / Mouse Handling
       const start = (e) => {
         e.preventDefault();
         pad.classList.add('playing');
@@ -292,12 +297,12 @@ function renderGrid() {
       pad.addEventListener('mousedown', start);
       pad.addEventListener('mouseup', end);
 
-      gridEl.appendChild(pad);
+      rowEl.appendChild(pad);
     }
+    gridEl.appendChild(rowEl);
   }
 }
 
-// Controls Listeners
 [rootSelect, document.getElementById('scaleSelect'), document.getElementById('offsetSelect'), document.getElementById('octaveShift')].forEach(el => {
   el.addEventListener('change', () => {
     currentScale = document.getElementById('scaleSelect').value;
@@ -306,7 +311,6 @@ function renderGrid() {
   });
 });
 
-// Init
 initMIDI();
 renderGrid();
 </script>
