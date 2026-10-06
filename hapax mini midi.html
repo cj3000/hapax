@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hapax Mini Sequencer + Web MIDI</title>
+  <style>
+    :root {
+      --bg: #121316;
+      --card: #1c1e24;
+      --accent: #00f0ff;
+      --accent-active: #ff0055;
+      --midi-color: #ff9900;
+      --text: #e0e6ed;
+      --border: #2e323e;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .app-container {
+      width: 100%;
+      max-width: 900px;
+      background: var(--card);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+    }
+    h1 { margin: 0; font-size: 1.4rem; color: var(--accent); letter-spacing: 1px; }
+    .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    button {
+      background: #2a2d37;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+    button:hover { background: #3a3f4d; }
+    button.active { background: var(--accent); color: #000; border-color: var(--accent); }
+    select, input {
+      background: #2a2d37;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 8px;
+      border-radius: 6px;
+    }
+    .panel {
+      background: #18191f;
+      padding: 15px;
+      border-radius: 8px;
+      margin-bottom: 15px;
+      border: 1px solid var(--border);
+    }
+    .panel-title { 
+      font-size: 0.85rem; 
+      font-weight: bold; 
+      margin-bottom: 10px; 
+      color: var(--midi-color); 
+      text-transform: uppercase; 
+      letter-spacing: 0.5px;
+    }
+    .grid {
+      display: grid;
+      gap: 4px;
+      margin-bottom: 20px;
+      background: #15161a;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .pad {
+      background: #252830;
+      border: 1px solid #333745;
+      border-radius: 4px;
+      aspect-ratio: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      user-select: none;
+    }
+    .pad.active { background: var(--accent); color: #000; font-weight: bold; }
+    .pad.current-step { background-color: #3d4354; }
+    .fx-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+    .status { font-size: 0.8rem; color: #8a94a6; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <header>
+    <h1>HAPAX // MIDI OUT</h1>
+    <div class="controls">
+      <button id="playBtn">PLAY</button>
+      <label>BPM: <input type="number" id="bpm" value="120" min="40" max="240" style="width: 50px;"></label>
+      <label>Scale: 
+        <select id="scaleSelect">
+          <option value="minor">Minor Pentatonic</option>
+          <option value="major">Major Pentatonic</option>
+          <option value="dorian">Dorian</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <!-- MIDI HARDWARE PANEL -->
+  <div class="panel">
+    <div class="panel-title">MIDI Output Setup</div>
+    <div class="fx-grid">
+      <label>Gerät:
+        <select id="midiOutputSelect">
+          <option value="">Lade MIDI-Geräte...</option>
+        </select>
+      </label>
+      <label>Kanal:
+        <select id="midiChannel">
+          <option value="0">Channel 1</option>
+          <option value="1">Channel 2</option>
+          <option value="2">Channel 3</option>
+          <option value="3">Channel 4</option>
+        </select>
+      </label>
+      <label>Interner Sound:
+        <input type="checkbox" id="internalAudioToggle" checked> An
+      </label>
+      <div id="midiStatus" class="status">Warte auf Web MIDI Zugriff...</div>
+    </div>
+  </div>
+
+  <!-- MAIN GRID VIEW -->
+  <div id="grid" class="grid"></div>
+
+  <!-- REALTIME FX PANEL -->
+  <div class="panel">
+    <div class="panel-title" style="color: #8a94a6;">Realtime FX Engine</div>
+    <div class="fx-grid">
+      <label>Random Chance:
+        <input type="range" id="chance" min="0" max="100" value="100">
+      </label>
+      <label>Pattern-Länge:
+        <select id="trackLength">
+          <option value="16">16 Steps (4/4)</option>
+          <option value="12">12 Steps (3/4)</option>
+          <option value="7">7 Steps (Polymeter)</option>
+        </select>
+      </label>
+    </div>
+  </div>
+</div>
+
+<script>
+// --- WEB AUDIO SETUP ---
+const AudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+// --- WEB MIDI SETUP ---
+let midiAccess = null;
+let activeMidiOutput = null;
+
+async function initMIDI() {
+  const statusEl = document.getElementById('midiStatus');
+  const selectEl = document.getElementById('midiOutputSelect');
+  
+  if (navigator.requestMIDIAccess) {
+    try {
+      midiAccess = await navigator.requestMIDIAccess();
+      statusEl.innerText = "MIDI bereit.";
+      
+      updateMidiDevices();
+      midiAccess.onstatechange = updateMidiDevices;
+    } catch (err) {
+      statusEl.innerText = "MIDI-Zugriff verweigert.";
+    }
+  } else {
+    statusEl.innerText = "Browser unterstützt keine Web MIDI API.";
+  }
+}
+
+function updateMidiDevices() {
+  const selectEl = document.getElementById('midiOutputSelect');
+  selectEl.innerHTML = '';
+  
+  const outputs = Array.from(midiAccess.outputs.values());
+  if (outputs.length === 0) {
+    selectEl.innerHTML = '<option value="">Kein MIDI-Gerät gefunden</option>';
+    activeMidiOutput = null;
+    return;
+  }
+
+  outputs.forEach(output => {
+    const opt = document.createElement('option');
+    opt.value = output.id;
+    opt.innerText = output.name;
+    selectEl.appendChild(opt);
+  });
+
+  // Wähle das erste Gerät als Standard
+  activeMidiOutput = outputs[0];
+}
+
+document.getElementById('midiOutputSelect').addEventListener('change', (e) => {
+  if (midiAccess) {
+    activeMidiOutput = midiAccess.outputs.get(e.target.value);
+  }
+});
+
+// --- SEQUENCER LOGIK ---
+const SCALES = {
+  minor: [0, 3, 5, 7, 10, 12, 15, 17],
+  major: [0, 2, 4, 7, 9, 12, 14, 16],
+  dorian: [0, 2, 3, 5, 7, 9, 10, 12]
+};
+
+let currentScale = 'minor';
+let rootNote = 48; // C3
+let isPlaying = false;
+let currentStep = 0;
+let stepCount = 16;
+let bpm = 120;
+let timerId = null;
+
+const rows = 8;
+let gridState = Array(rows).fill(null).map(() => Array(16).fill(false));
+
+const gridEl = document.getElementById('grid');
+const playBtn = document.getElementById('playBtn');
+
+function getPitch(rowIndex) {
+  const scaleIntervals = SCALES[currentScale];
+  const scaleDegree = (rows - 1 - rowIndex);
+  return rootNote + scaleIntervals[scaleDegree % scaleIntervals.length];
+}
+
+// Sendet Noten an Web Audio + MIDI Output
+function triggerNote(midiNote) {
+  const chance = parseInt(document.getElementById('chance').value);
+  if (Math.random() * 100 > chance) return; // Hapax Chance FX
+
+  const gateDurationMs = (60 / bpm / 4) * 1000 * 0.8; // 80% Gate-Length
+
+  // 1. Interner Synthesizer (falls aktiviert)
+  if (document.getElementById('internalAudioToggle').checked) {
+    if (AudioCtx.state === 'suspended') AudioCtx.resume();
+    const osc = AudioCtx.createOscillator();
+    const gain = AudioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(440 * Math.pow(2, (midiNote - 69) / 12), AudioCtx.currentTime);
+    gain.gain.setValueAtTime(0.2, AudioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, AudioCtx.currentTime + (gateDurationMs / 1000));
+    osc.connect(gain);
+    gain.connect(AudioCtx.destination);
+    osc.start();
+    osc.stop(AudioCtx.currentTime + (gateDurationMs / 1000));
+  }
+
+  // 2. MIDI Output an externe Hardware
+  if (activeMidiOutput) {
+    const channel = parseInt(document.getElementById('midiChannel').value);
+    const noteOnByte = 0x90 | channel;  // Note On
+    const noteOffByte = 0x80 | channel; // Note Off
+    const velocity = 100;
+
+    // Send Note On
+    activeMidiOutput.send([noteOnByte, midiNote, velocity]);
+
+    // Send Note Off nach Ablauf der Gate Time
+    setTimeout(() => {
+      activeMidiOutput.send([noteOffByte, midiNote, 0]);
+    }, gateDurationMs);
+  }
+}
+
+function renderGrid() {
+  gridEl.innerHTML = '';
+  gridEl.style.gridTemplateColumns = `repeat(${stepCount}, 1fr)`;
+
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < stepCount; c++) {
+      const pad = document.createElement('div');
+      pad.className = `pad ${gridState[r][c] ? 'active' : ''} ${c === currentStep && isPlaying ? 'current-step' : ''}`;
+      pad.addEventListener('click', () => {
+        gridState[r][c] = !gridState[r][c];
+        if (gridState[r][c]) triggerNote(getPitch(r));
+        renderGrid();
+      });
+      gridEl.appendChild(pad);
+    }
+  }
+}
+
+function runSequencer() {
+  if (!isPlaying) return;
+
+  for (let r = 0; r < rows; r++) {
+    if (gridState[r][currentStep]) {
+      triggerNote(getPitch(r));
+    }
+  }
+
+  renderGrid();
+  currentStep = (currentStep + 1) % stepCount;
+
+  const stepTime = (60 / bpm / 4) * 1000;
+  timerId = setTimeout(runSequencer, stepTime);
+}
+
+// Event Listeners
+playBtn.addEventListener('click', () => {
+  isPlaying = !isPlaying;
+  playBtn.innerText = isPlaying ? 'STOP' : 'PLAY';
+  playBtn.classList.toggle('active', isPlaying);
+  if (isPlaying) {
+    currentStep = 0;
+    runSequencer();
+  } else {
+    clearTimeout(timerId);
+    renderGrid();
+  }
+});
+
+document.getElementById('scaleSelect').addEventListener('change', (e) => {
+  currentScale = e.target.value;
+  renderGrid();
+});
+
+document.getElementById('bpm').addEventListener('change', (e) => {
+  bpm = parseInt(e.target.value);
+});
+
+document.getElementById('trackLength').addEventListener('change', (e) => {
+  stepCount = parseInt(e.target.value);
+  renderGrid();
+});
+
+// Init
+initMIDI();
+renderGrid();
+</script>
+</body>
+</html>
