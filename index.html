@@ -2,38 +2,39 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Hapax Multi Grid & Sequencer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Hapax iPad Pro Suite</title>
   <style>
     :root {
-      --bg: #111215;
-      --card: #1a1c23;
+      --bg: #0d0e11;
+      --card: #161820;
       --accent: #00f0ff;
       --root-note: #ff0055;
-      --scale-note: #2d3245;
-      --out-scale: #161822;
+      --scale-note: #282d3e;
+      --out-scale: #12141c;
       --text: #e0e6ed;
-      --border: #2a2e3d;
-      --linked-highlight: #ffe600; /* Gelb für gleiche Noten */
+      --border: #262a38;
+      --linked-highlight: #ffe600;
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg);
       color: var(--text);
       margin: 0;
-      padding: 10px;
+      padding: 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
+      touch-action: manipulation;
     }
     .app-container {
       width: 100%;
-      max-width: 680px;
+      max-width: 1100px; /* Perfekt für iPad Pro Horizontal */
       background: var(--card);
-      border-radius: 12px;
+      border-radius: 14px;
       border: 1px solid var(--border);
-      padding: 15px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      padding: 16px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.6);
     }
     header {
       display: flex;
@@ -43,50 +44,43 @@
       padding-bottom: 10px;
       margin-bottom: 12px;
     }
-    h1 { margin: 0; font-size: 1.1rem; color: var(--accent); letter-spacing: 1px; }
+    h1 { margin: 0; font-size: 1.2rem; color: var(--accent); letter-spacing: 1px; }
     
     .panel {
-      background: #15161c;
-      padding: 10px;
+      background: #111217;
+      padding: 12px;
       border-radius: 8px;
       margin-bottom: 12px;
       border: 1px solid var(--border);
     }
     .controls-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
     }
-    label { font-size: 0.7rem; color: #8a94a6; display: flex; flex-direction: column; gap: 3px; }
+    label { font-size: 0.72rem; color: #8a94a6; display: flex; flex-direction: column; gap: 4px; }
     select, input, button {
-      background: #222531;
+      background: #1e212b;
       color: var(--text);
       border: 1px solid var(--border);
-      padding: 6px;
+      padding: 7px;
       border-radius: 6px;
-      font-size: 0.8rem;
+      font-size: 0.85rem;
     }
 
-    /* MODE SELECTOR BUTTONS */
-    .mode-bar {
-      display: flex;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
+    /* MODE SELECTOR */
+    .mode-bar { display: flex; gap: 10px; margin-bottom: 12px; }
     .mode-btn {
       flex: 1;
       font-weight: bold;
       cursor: pointer;
       text-align: center;
+      padding: 10px;
       transition: all 0.2s;
     }
-    .mode-btn.active {
-      background: var(--accent);
-      color: #000;
-      border-color: var(--accent);
-    }
+    .mode-btn.active { background: var(--accent); color: #000; border-color: var(--accent); }
 
-    /* BASE PAD STYLES */
+    /* PAD STYLES */
     .pad {
       cursor: pointer;
       display: flex;
@@ -101,83 +95,83 @@
     .pad:active, .pad.playing {
       background: var(--accent) !important;
       color: #000 !important;
-      transform: scale(0.92);
+      transform: scale(0.94);
     }
     .pad.same-note-highlight {
       background: var(--linked-highlight) !important;
       color: #000 !important;
-      box-shadow: 0 0 10px var(--linked-highlight);
+      box-shadow: 0 0 12px var(--linked-highlight);
     }
     .pad.in-scale { background: var(--scale-note); }
     .pad.is-root { background: var(--root-note); color: #fff; font-weight: bold; }
-    .pad-note { font-size: 0.75rem; font-weight: bold; pointer-events: none; }
-    .pad-midi { font-size: 0.55rem; opacity: 0.6; margin-top: 1px; pointer-events: none; }
+    .pad-note { font-size: 0.8rem; font-weight: bold; pointer-events: none; }
+    .pad-midi { font-size: 0.6rem; opacity: 0.6; margin-top: 1px; pointer-events: none; }
 
-    /* HEX GRID */
+    /* RIESIGES HEX GRID (DOPPELTE GRÖSSE FÜR IPAD PRO) */
     .hex-wrapper {
       display: flex;
       flex-direction: column;
       align-items: center;
-      background: #0b0c0e;
-      padding: 15px 5px;
-      border-radius: 8px;
+      background: #08090b;
+      padding: 20px 10px;
+      border-radius: 10px;
       overflow-x: auto;
-      touch-action: manipulation;
     }
-    .hex-row { display: flex; margin-bottom: -12px; }
-    .hex-row:nth-child(even) { transform: translateX(23px); }
+    .hex-row { display: flex; margin-bottom: -15px; }
+    .hex-row:nth-child(even) { transform: translateX(29px); }
     .hex-pad {
-      width: 44px;
-      height: 50px;
+      width: 56px;
+      height: 64px;
       margin: 0 2px;
       border: none;
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     }
 
-    /* SQUARE PAD GRID */
+    /* SQUARE PAD GRID (IPAD OPTIMIERT) */
     .square-grid {
       display: grid;
-      grid-template-columns: repeat(8, 1fr);
-      gap: 6px;
-      background: #0b0c0e;
-      padding: 10px;
-      border-radius: 8px;
+      grid-template-columns: repeat(10, 1fr);
+      gap: 8px;
+      background: #08090b;
+      padding: 12px;
+      border-radius: 10px;
     }
     .square-pad {
       aspect-ratio: 1;
-      border-radius: 6px;
+      border-radius: 8px;
     }
 
-    /* STEP SEQUENCER */
-    .seq-grid {
-      display: grid;
-      grid-template-columns: repeat(16, 1fr);
+    /* STEP SEQUENCER FIXED */
+    .seq-wrapper {
+      display: flex;
+      flex-direction: column;
       gap: 4px;
-      background: #0b0c0e;
-      padding: 10px;
-      border-radius: 8px;
-      overflow-x: auto;
+      background: #08090b;
+      padding: 12px;
+      border-radius: 10px;
     }
+    .seq-row { display: flex; gap: 4px; }
     .seq-pad {
-      aspect-ratio: 0.6;
-      border-radius: 4px;
-      font-size: 0.6rem;
+      flex: 1;
+      height: 45px;
+      border-radius: 6px;
+      font-size: 0.7rem;
     }
-    .seq-pad.active-step { background: var(--accent); color: #000; }
-    .seq-pad.current-playhead { border-color: #fff; box-shadow: 0 0 8px #fff; }
+    .seq-pad.active-step { background: var(--accent); color: #000; font-weight: bold; }
+    .seq-pad.current-playhead { border: 2px solid #fff; box-shadow: 0 0 10px #fff; }
   </style>
 </head>
 <body>
 
 <div class="app-container">
   <header>
-    <h1>HAPAX // MULTI ENGINE</h1>
-    <div id="midiStatus" style="font-size: 0.75rem; color: var(--accent);">MIDI Init...</div>
+    <h1>HAPAX // IPAD PRO SUITE</h1>
+    <div id="midiStatus" style="font-size: 0.8rem; color: var(--accent);">MIDI Init...</div>
   </header>
 
   <!-- MODE SELECTOR -->
   <div class="mode-bar">
-    <button class="mode-btn active" data-mode="hex">HEX GRID</button>
+    <button class="mode-btn active" data-mode="hex">HEX GRID (LARGE)</button>
     <button class="mode-btn" data-mode="square">PAD GRID</button>
     <button class="mode-btn" data-mode="step">STEP SEQ</button>
   </div>
@@ -218,14 +212,14 @@
       </label>
 
       <!-- SEQUENCER EXTRA CONTROLS -->
-      <div id="seqControls" style="display:none; grid-column: 1 / -1; display: flex; gap: 10px; align-items: center; margin-top: 5px;">
-        <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold;">PLAY</button>
-        <label>BPM: <input type="number" id="bpm" value="120" min="40" max="240" style="width: 50px;"></label>
+      <div id="seqControls" style="display:none; grid-column: 1 / -1; display: flex; gap: 12px; align-items: center; margin-top: 6px;">
+        <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold; width: 100px;">PLAY</button>
+        <label>BPM: <input type="number" id="bpm" value="120" min="40" max="240" style="width: 60px;"></label>
       </div>
     </div>
   </div>
 
-  <!-- CONTAINER FÜR DIE MODI -->
+  <!-- MAIN VIEW CONTAINER -->
   <div id="viewContainer"></div>
 </div>
 
@@ -242,7 +236,7 @@ const SCALES = {
 };
 
 // Global State
-let currentMode = 'hex'; // 'hex', 'square', 'step'
+let currentMode = 'hex';
 let rootMidi = 48; // C3
 let currentScale = 'minor';
 let rowOffset = 5;
@@ -326,7 +320,7 @@ function stopNote(midiNote) {
   }
 }
 
-// HIGHLIGHT GLEICHER NOTEN (SAME NOTE LINKING)
+// LINKED NOTE HIGHLIGHTS
 function highlightSameNotes(targetMidi) {
   const pads = document.querySelectorAll('.pad');
   pads.forEach(p => {
@@ -341,7 +335,7 @@ function clearSameNoteHighlights() {
   pads.forEach(p => p.classList.remove('same-note-highlight'));
 }
 
-// RENDER FUNCTION (CHOOSE MODE)
+// RENDER ROUTINE
 function renderView() {
   viewContainer.innerHTML = '';
   document.getElementById('seqControls').style.display = currentMode === 'step' ? 'flex' : 'none';
@@ -354,11 +348,11 @@ function renderView() {
   else if (currentMode === 'step') renderStepSeq();
 }
 
-// 1. HEX GRID
+// 1. RIESIGES HEX GRID (11 ROWS x 13 COLS)
 function renderHexGrid() {
   const wrapper = document.createElement('div');
   wrapper.className = 'hex-wrapper';
-  const rows = 7, cols = 9;
+  const rows = 11, cols = 13;
 
   for (let r = rows - 1; r >= 0; r--) {
     const rowEl = document.createElement('div');
@@ -386,7 +380,7 @@ function renderHexGrid() {
 function renderSquareGrid() {
   const grid = document.createElement('div');
   grid.className = 'square-grid';
-  const rows = 8, cols = 8;
+  const rows = 8, cols = 10;
 
   for (let r = rows - 1; r >= 0; r--) {
     for (let c = 0; c < cols; c++) {
@@ -406,7 +400,6 @@ function renderSquareGrid() {
   viewContainer.appendChild(grid);
 }
 
-// PAD EVENT BINDING (WITH LINKED HIGHLIGHT)
 function bindPadEvents(pad, midiNote) {
   const start = (e) => {
     e.preventDefault();
@@ -428,30 +421,49 @@ function bindPadEvents(pad, midiNote) {
   pad.addEventListener('mouseup', end);
 }
 
-// 3. STEP SEQUENCER
+// 3. STEP SEQUENCER (FIXED)
 function renderStepSeq() {
-  const grid = document.createElement('div');
-  grid.className = 'seq-grid';
+  const wrapper = document.createElement('div');
+  wrapper.className = 'seq-wrapper';
 
   for (let r = seqRows - 1; r >= 0; r--) {
-    const pitch = rootMidi + r * 2; // scale intervals
+    const rowEl = document.createElement('div');
+    rowEl.className = 'seq-row';
+    const pitch = rootMidi + r * 2;
     const details = getNoteDetails(pitch);
 
     for (let c = 0; c < seqCols; c++) {
       const pad = document.createElement('div');
-      pad.className = `pad seq-pad ${seqGridState[r][c] ? 'active-step' : ''} ${c === currentStep && isPlaying ? 'current-playhead' : ''}`;
+      pad.className = `pad seq-pad ${seqGridState[r][c] ? 'active-step' : ''}`;
+      pad.dataset.row = r;
+      pad.dataset.col = c;
       pad.innerHTML = `<span class="pad-note">${details.name}</span>`;
 
       pad.addEventListener('click', () => {
         seqGridState[r][c] = !seqGridState[r][c];
+        pad.classList.toggle('active-step', seqGridState[r][c]);
         if (seqGridState[r][c]) playNote(pitch);
-        renderStepSeq();
       });
 
-      grid.appendChild(pad);
+      rowEl.appendChild(pad);
     }
+    wrapper.appendChild(rowEl);
   }
-  viewContainer.appendChild(grid);
+  viewContainer.appendChild(wrapper);
+}
+
+// UPDATE PLAYHEAD ONLY (NO RE-RENDER)
+function updatePlayheadUI(step) {
+  if (currentMode !== 'step') return;
+  
+  const allPads = document.querySelectorAll('.seq-pad');
+  allPads.forEach(p => p.classList.remove('current-playhead'));
+
+  allPads.forEach(p => {
+    if (parseInt(p.dataset.col) === step) {
+      p.classList.add('current-playhead');
+    }
+  });
 }
 
 // SEQUENCER CLOCK
@@ -466,9 +478,9 @@ function runSequencer() {
     }
   }
 
-  if (currentMode === 'step') renderStepSeq();
-  currentStep = (currentStep + 1) % seqCols;
+  updatePlayheadUI(currentStep);
 
+  currentStep = (currentStep + 1) % seqCols;
   const stepTime = (60 / bpm / 4) * 1000;
   timerId = setTimeout(runSequencer, stepTime);
 }
@@ -492,7 +504,8 @@ document.getElementById('playBtn').addEventListener('click', () => {
     runSequencer();
   } else {
     clearTimeout(timerId);
-    renderView();
+    const allPads = document.querySelectorAll('.seq-pad');
+    allPads.forEach(p => p.classList.remove('current-playhead'));
   }
 });
 
