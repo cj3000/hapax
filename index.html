@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Hapax 4-Track Workstation</title>
+  <title>Hapax 4-Track Workstation - Multi-Out</title>
   <style>
     :root {
       --bg: #0d0e11;
@@ -87,8 +87,11 @@
       color: var(--text);
       font-weight: bold;
       cursor: pointer;
-      font-size: 0.75rem;
+      font-size: 0.72rem;
       text-align: left;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .track-strip.active {
       border-color: var(--track-active);
@@ -278,30 +281,28 @@
     <div id="midiStatus" style="font-size: 0.75rem; color: var(--accent);">MIDI Init...</div>
   </header>
 
-  <!-- TRACK BAR (4 INDEPENDENT TRACK STRIPS) -->
+  <!-- TRACK BAR -->
   <div class="track-bar" id="trackBarContainer"></div>
 
   <div class="workspace">
     <!-- MAIN GRID CONTAINER -->
     <div class="main-view" id="viewContainer"></div>
 
-    <!-- SIDE PANEL (PAD-BASED CONTROLS FOR ACTIVE TRACK) -->
+    <!-- SIDE PANEL (TRACK SPECIFIC CONTROLS) -->
     <div class="side-panel">
-      <!-- MIDI CHANNEL SELECTOR -->
+
+      <!-- MIDI DESTINATION (PRO TRACK) -->
       <div>
-        <div class="panel-section-title">MIDI Output Channel</div>
-        <select id="channelSelect" style="width:100%;">
-          <option value="0">Channel 1</option>
-          <option value="1">Channel 2</option>
-          <option value="2">Channel 3</option>
-          <option value="3">Channel 4</option>
-          <option value="4">Channel 5</option>
-          <option value="5">Channel 6</option>
-          <option value="6">Channel 7</option>
-          <option value="7">Channel 8</option>
-          <option value="8">Channel 9</option>
-          <option value="9">Channel 10 (Drums)</option>
+        <div class="panel-section-title">MIDI Destination</div>
+        <select id="trackMidiOutputSelect" style="width:100%;">
+          <option value="">Kein Ausgang</option>
         </select>
+      </div>
+
+      <!-- MIDI CHANNEL SELECTOR (PRO TRACK, 1-16) -->
+      <div>
+        <div class="panel-section-title">MIDI Channel</div>
+        <select id="channelSelect" style="width:100%;"></select>
       </div>
 
       <!-- ENGINE MODE -->
@@ -344,15 +345,10 @@
         </div>
       </div>
 
-      <!-- GLOBAL TRANSPORT & MIDI DEVICE -->
-      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 6px;">
-        <label style="font-size:0.65rem; color:#8a94a6;">Device:
-          <select id="midiOutputSelect" style="width:100%;"><option value="">Suche...</option></select>
-        </label>
-        <div style="display: flex; gap: 6px; align-items: center;">
-          <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold; flex:1; padding:8px; border-radius:4px; border:none; cursor:pointer;">PLAY ALL</button>
-          <input type="number" id="bpm" value="120" min="40" max="240" style="width: 45px;">
-        </div>
+      <!-- GLOBAL TRANSPORT -->
+      <div style="margin-top: auto; display: flex; gap: 6px; align-items: center; padding-top: 10px;">
+        <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold; flex:1; padding:8px; border-radius:4px; border:none; cursor:pointer;">PLAY ALL</button>
+        <input type="number" id="bpm" value="120" min="40" max="240" style="width: 45px;">
       </div>
     </div>
   </div>
@@ -373,19 +369,23 @@ const SCALES = {
 const seqRows = 8;
 const seqCols = 16;
 
+// GLOBAL MIDI ACCESS OBJECT
+let midiAccessRef = null;
+
 // TRACK STATE DATA MODEL (4 INDEPENDENT TRACKS)
 let activeTrackIdx = 0;
 let tracks = [
-  createTrackState(0, 0), // Track 1 -> MIDI Ch 1
-  createTrackState(1, 1), // Track 2 -> MIDI Ch 2
-  createTrackState(2, 2), // Track 3 -> MIDI Ch 3
-  createTrackState(3, 3)  // Track 4 -> MIDI Ch 4
+  createTrackState(0, 0), // Track 1 -> Ch 1 (Index 0)
+  createTrackState(1, 1), // Track 2 -> Ch 2 (Index 1)
+  createTrackState(2, 2), // Track 3 -> Ch 3 (Index 2)
+  createTrackState(3, 3)  // Track 4 -> Ch 4 (Index 3)
 ];
 
 function createTrackState(id, defaultCh) {
   return {
     id: id,
-    channel: defaultCh,
+    outputDeviceId: "", // Custom Destination ID
+    channel: defaultCh, // Channel 0..15
     mode: 'hex',
     rootMidi: 48, // C3
     scale: 'minor',
@@ -397,7 +397,6 @@ function createTrackState(id, defaultCh) {
   };
 }
 
-let activeMidiOutput = null;
 let activePressedNotes = new Set();
 
 // Sequencer Clock State
@@ -407,6 +406,15 @@ let bpm = 120;
 let timerId = null;
 
 const viewContainer = document.getElementById('viewContainer');
+
+// POPULATE 16 MIDI CHANNELS INTO SELECTOR
+const channelSelect = document.getElementById('channelSelect');
+for (let ch = 0; ch < 16; ch++) {
+  const opt = document.createElement('option');
+  opt.value = ch;
+  opt.innerText = `Channel ${ch + 1}`;
+  channelSelect.appendChild(opt);
+}
 
 // BUILD ROOT NOTE PADS
 const rootPadGrid = document.getElementById('rootPadGrid');
@@ -463,10 +471,35 @@ function renderTrackBar() {
   });
 }
 
+// UPDATE MIDI DESTINATION DROPDOWN
+function populateMidiOutputs() {
+  const select = document.getElementById('trackMidiOutputSelect');
+  select.innerHTML = '';
+
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = "";
+  defaultOpt.innerText = "Kein Ausgang ausgewäht";
+  select.appendChild(defaultOpt);
+
+  if (midiAccessRef) {
+    const outputs = Array.from(midiAccessRef.outputs.values());
+    outputs.forEach(out => {
+      const opt = document.createElement('option');
+      opt.value = out.id;
+      opt.innerText = out.name;
+      select.appendChild(opt);
+    });
+  }
+
+  // Set selected value based on current active track
+  select.value = tracks[activeTrackIdx].outputDeviceId;
+}
+
 // SYNC SIDE PANEL BUTTONS WITH ACTIVE TRACK STATE
 function syncSidePanelUI() {
   const t = tracks[activeTrackIdx];
 
+  document.getElementById('trackMidiOutputSelect').value = t.outputDeviceId;
   document.getElementById('channelSelect').value = t.channel;
 
   const updateSection = (type, val) => {
@@ -485,56 +518,61 @@ function syncSidePanelUI() {
 async function initMIDI() {
   if (navigator.requestMIDIAccess) {
     try {
-      const midiAccess = await navigator.requestMIDIAccess();
+      midiAccessRef = await navigator.requestMIDIAccess();
       document.getElementById('midiStatus').innerText = "MIDI Aktiv";
-      
-      const updateDevices = () => {
-        const select = document.getElementById('midiOutputSelect');
-        select.innerHTML = '';
-        const outputs = Array.from(midiAccess.outputs.values());
-        outputs.forEach(out => {
-          const opt = document.createElement('option');
-          opt.value = out.id;
-          opt.innerText = out.name;
-          select.appendChild(opt);
-        });
-        if (outputs.length > 0) activeMidiOutput = outputs[0];
-      };
 
-      updateDevices();
-      midiAccess.onstatechange = updateDevices;
+      // Set default output for all tracks if available
+      const outputs = Array.from(midiAccessRef.outputs.values());
+      if (outputs.length > 0) {
+        tracks.forEach(t => {
+          if (!t.outputDeviceId) t.outputDeviceId = outputs[0].id;
+        });
+      }
+
+      populateMidiOutputs();
+      syncSidePanelUI();
+
+      midiAccessRef.onstatechange = () => {
+        populateMidiOutputs();
+        syncSidePanelUI();
+      };
     } catch (e) {
       document.getElementById('midiStatus').innerText = "MIDI Fehler";
     }
   }
 }
 
-document.getElementById('midiOutputSelect').addEventListener('change', (e) => {
-  navigator.requestMIDIAccess().then(m => activeMidiOutput = m.outputs.get(e.target.value));
-});
+// SEND MIDI ON SPECIFIC TRACK DESTINATION & CHANNEL
+function sendMidiMessage(track, statusByte, note, velocity) {
+  if (!midiAccessRef) return;
+  if (!track.outputDeviceId) return;
 
-function playNoteOnChannel(midiNote, channel) {
-  if (activeMidiOutput) {
-    activeMidiOutput.send([0x90 | channel, midiNote, 100]);
+  const output = midiAccessRef.outputs.get(track.outputDeviceId);
+  if (output) {
+    // Channel is masked to 0-15 (0x00 to 0x0F)
+    const channelStatus = statusByte | (track.channel & 0x0F);
+    output.send([channelStatus, note, velocity]);
   }
 }
 
-function stopNoteOnChannel(midiNote, channel) {
-  if (activeMidiOutput) {
-    activeMidiOutput.send([0x80 | channel, midiNote, 0]);
-  }
+function playTrackNote(track, midiNote) {
+  sendMidiMessage(track, 0x90, midiNote, 100);
+}
+
+function stopTrackNote(track, midiNote) {
+  sendMidiMessage(track, 0x80, midiNote, 0);
 }
 
 function playNote(midiNote) {
   const t = tracks[activeTrackIdx];
-  playNoteOnChannel(midiNote, t.channel);
+  playTrackNote(t, midiNote);
   activePressedNotes.add(midiNote % 12);
   updateChordDisplay();
 }
 
 function stopNote(midiNote) {
   const t = tracks[activeTrackIdx];
-  stopNoteOnChannel(midiNote, t.channel);
+  stopTrackNote(t, midiNote);
   activePressedNotes.delete(midiNote % 12);
   updateChordDisplay();
 }
@@ -736,7 +774,7 @@ function runSequencer() {
 
   const anySolo = tracks.some(t => t.soloed);
 
-  // Play all active tracks in parallel
+  // Play all active tracks in parallel with their own channel & output device
   tracks.forEach(t => {
     if (t.muted) return;
     if (anySolo && !t.soloed) return;
@@ -745,8 +783,8 @@ function runSequencer() {
       for (let r = 0; r < seqRows; r++) {
         if (t.seqGridState[r][currentStep]) {
           const pitch = t.rootMidi + r * 2;
-          playNoteOnChannel(pitch, t.channel);
-          setTimeout(() => stopNoteOnChannel(pitch, t.channel), 150);
+          playTrackNote(t, pitch);
+          setTimeout(() => stopTrackNote(t, pitch), 150);
         }
       }
     }
@@ -757,7 +795,11 @@ function runSequencer() {
   timerId = setTimeout(runSequencer, (60 / bpm / 4) * 1000);
 }
 
-// CONTROL LISTENERS
+// LISTENERS FOR TRACK MIDI DESTINATION AND CHANNEL
+document.getElementById('trackMidiOutputSelect').addEventListener('change', (e) => {
+  tracks[activeTrackIdx].outputDeviceId = e.target.value;
+});
+
 document.getElementById('channelSelect').addEventListener('change', (e) => {
   tracks[activeTrackIdx].channel = parseInt(e.target.value);
   renderTrackBar();
