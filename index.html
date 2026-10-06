@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Hapax 4-Track Workstation - Multi-Out</title>
+  <title>Hapax 4-Track Workstation - Multi-Out & Save</title>
   <style>
     :root {
       --bg: #0d0e11;
@@ -40,7 +40,6 @@
       box-shadow: 0 10px 40px rgba(0,0,0,0.6);
     }
     
-    /* HEADER & CHORD DISPLAY */
     header {
       display: flex;
       justify-content: space-between;
@@ -65,7 +64,6 @@
       text-align: center;
     }
 
-    /* TRACK STRIP WITH MUTE / SOLO */
     .track-bar {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -113,7 +111,6 @@
     .ms-btn.muted { background: var(--mute); color: #fff; }
     .ms-btn.soloed { background: var(--solo); color: #000; }
 
-    /* WORKSPACE LAYOUT */
     .workspace {
       display: flex;
       gap: 12px;
@@ -123,7 +120,7 @@
       min-width: 0;
     }
     .side-panel {
-      width: 220px;
+      width: 230px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -141,7 +138,6 @@
       margin-bottom: 4px;
     }
 
-    /* PAD-BASED CONTROLS */
     .pad-selector {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -164,7 +160,6 @@
       border-color: var(--accent);
     }
 
-    /* PAD STYLES */
     .pad {
       cursor: pointer;
       display: flex;
@@ -191,7 +186,6 @@
     .pad-note { font-size: 0.8rem; font-weight: bold; pointer-events: none; }
     .pad-midi { font-size: 0.6rem; opacity: 0.6; margin-top: 1px; pointer-events: none; }
 
-    /* HEX GRID */
     .hex-wrapper {
       display: flex;
       flex-direction: column;
@@ -211,7 +205,6 @@
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
     }
 
-    /* SQUARE PAD GRID */
     .square-grid {
       display: grid;
       grid-template-columns: repeat(16, 1fr);
@@ -225,7 +218,6 @@
       border-radius: 6px;
     }
 
-    /* STEP SEQUENCER */
     .seq-wrapper {
       display: flex;
       flex-direction: column;
@@ -262,6 +254,48 @@
       color: #8a94a6;
     }
 
+    /* STORAGE UI STYLES */
+    .slot-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .slot-btn {
+      background: #1e212b;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.65rem;
+      padding: 6px 0;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+    }
+    .slot-btn.has-data {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .slot-btn.active-slot {
+      background: var(--accent);
+      color: #000;
+      font-weight: bold;
+    }
+    .io-btn-row {
+      display: flex;
+      gap: 4px;
+    }
+    .io-btn {
+      flex: 1;
+      background: #252836;
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 0.65rem;
+      padding: 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+    }
+
     select, input {
       background: #1e212b;
       color: var(--text);
@@ -281,17 +315,25 @@
     <div id="midiStatus" style="font-size: 0.75rem; color: var(--accent);">MIDI Init...</div>
   </header>
 
-  <!-- TRACK BAR -->
   <div class="track-bar" id="trackBarContainer"></div>
 
   <div class="workspace">
-    <!-- MAIN GRID CONTAINER -->
     <div class="main-view" id="viewContainer"></div>
 
-    <!-- SIDE PANEL (TRACK SPECIFIC CONTROLS) -->
     <div class="side-panel">
 
-      <!-- MIDI DESTINATION (PRO TRACK) -->
+      <!-- PRESET STORAGE SLOTS -->
+      <div>
+        <div class="panel-section-title">Preset Slots</div>
+        <div class="slot-grid" id="slotContainer"></div>
+        <div class="io-btn-row">
+          <button class="io-btn" id="saveSlotBtn">Save Active</button>
+          <button class="io-btn" id="exportBtn">JSON Exp</button>
+          <button class="io-btn" id="importBtn">JSON Imp</button>
+          <input type="file" id="fileInput" accept=".json" style="display:none;">
+        </div>
+      </div>
+
       <div>
         <div class="panel-section-title">MIDI Destination</div>
         <select id="trackMidiOutputSelect" style="width:100%;">
@@ -299,13 +341,11 @@
         </select>
       </div>
 
-      <!-- MIDI CHANNEL SELECTOR (PRO TRACK, 1-16) -->
       <div>
         <div class="panel-section-title">MIDI Channel</div>
         <select id="channelSelect" style="width:100%;"></select>
       </div>
 
-      <!-- ENGINE MODE -->
       <div>
         <div class="panel-section-title">Engine Mode</div>
         <div class="pad-selector">
@@ -315,13 +355,11 @@
         </div>
       </div>
 
-      <!-- ROOT NOTE -->
       <div>
         <div class="panel-section-title">Root Note</div>
         <div class="pad-selector" id="rootPadGrid"></div>
       </div>
 
-      <!-- SCALE -->
       <div>
         <div class="panel-section-title">Scale</div>
         <div class="pad-selector">
@@ -334,7 +372,6 @@
         </div>
       </div>
 
-      <!-- ROW INTERVAL -->
       <div>
         <div class="panel-section-title">Row Interval</div>
         <div class="pad-selector">
@@ -345,7 +382,6 @@
         </div>
       </div>
 
-      <!-- GLOBAL TRANSPORT -->
       <div style="margin-top: auto; display: flex; gap: 6px; align-items: center; padding-top: 10px;">
         <button id="playBtn" style="background: var(--accent); color:#000; font-weight:bold; flex:1; padding:8px; border-radius:4px; border:none; cursor:pointer;">PLAY ALL</button>
         <input type="number" id="bpm" value="120" min="40" max="240" style="width: 45px;">
@@ -369,25 +405,24 @@ const SCALES = {
 const seqRows = 8;
 const seqCols = 16;
 
-// GLOBAL MIDI ACCESS OBJECT
 let midiAccessRef = null;
-
-// TRACK STATE DATA MODEL (4 INDEPENDENT TRACKS)
 let activeTrackIdx = 0;
+let activeSlotIdx = 0;
+
 let tracks = [
-  createTrackState(0, 0), // Track 1 -> Ch 1 (Index 0)
-  createTrackState(1, 1), // Track 2 -> Ch 2 (Index 1)
-  createTrackState(2, 2), // Track 3 -> Ch 3 (Index 2)
-  createTrackState(3, 3)  // Track 4 -> Ch 4 (Index 3)
+  createTrackState(0, 0),
+  createTrackState(1, 1),
+  createTrackState(2, 2),
+  createTrackState(3, 3)
 ];
 
 function createTrackState(id, defaultCh) {
   return {
     id: id,
-    outputDeviceId: "", // Custom Destination ID
-    channel: defaultCh, // Channel 0..15
+    outputDeviceId: "",
+    channel: defaultCh,
     mode: 'hex',
-    rootMidi: 48, // C3
+    rootMidi: 48,
     scale: 'minor',
     rowOffset: 5,
     muted: false,
@@ -398,8 +433,6 @@ function createTrackState(id, defaultCh) {
 }
 
 let activePressedNotes = new Set();
-
-// Sequencer Clock State
 let isPlaying = false;
 let currentStep = 0;
 let bpm = 120;
@@ -407,7 +440,7 @@ let timerId = null;
 
 const viewContainer = document.getElementById('viewContainer');
 
-// POPULATE 16 MIDI CHANNELS INTO SELECTOR
+// BUILD MIDI CHANNEL SELECTOR
 const channelSelect = document.getElementById('channelSelect');
 for (let ch = 0; ch < 16; ch++) {
   const opt = document.createElement('option');
@@ -427,7 +460,113 @@ NOTE_NAMES.forEach((note, idx) => {
   rootPadGrid.appendChild(pad);
 });
 
-// BUILD TRACK BAR STRIPS
+// --- STORAGE SYSTEM ENGINE ---
+function saveToSlot(slotIdx) {
+  const payload = {
+    bpm: bpm,
+    tracks: tracks
+  };
+  localStorage.setItem(`hapax_slot_${slotIdx}`, JSON.stringify(payload));
+  autoSaveCurrentState();
+  renderSlotUI();
+}
+
+function loadFromSlot(slotIdx) {
+  const raw = localStorage.getItem(`hapax_slot_${slotIdx}`);
+  if (!raw) return;
+  
+  const parsed = JSON.parse(raw);
+  bpm = parsed.bpm || 120;
+  tracks = parsed.tracks;
+  activeSlotIdx = slotIdx;
+
+  document.getElementById('bpm').value = bpm;
+  renderTrackBar();
+  syncSidePanelUI();
+  renderView();
+  renderSlotUI();
+}
+
+function autoSaveCurrentState() {
+  const payload = { bpm, tracks, activeSlotIdx };
+  localStorage.setItem('hapax_autosave', JSON.stringify(payload));
+}
+
+function loadAutoSaveState() {
+  const raw = localStorage.getItem('hapax_autosave');
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    bpm = parsed.bpm || 120;
+    tracks = parsed.tracks;
+    activeSlotIdx = parsed.activeSlotIdx || 0;
+    document.getElementById('bpm').value = bpm;
+  }
+}
+
+function renderSlotUI() {
+  const container = document.getElementById('slotContainer');
+  container.innerHTML = '';
+
+  for (let i = 0; i < 8; i++) {
+    const hasData = localStorage.getItem(`hapax_slot_${i}`) !== null;
+    const btn = document.createElement('button');
+    btn.className = `slot-btn ${hasData ? 'has-data' : ''} ${i === activeSlotIdx ? 'active-slot' : ''}`;
+    btn.innerText = `P${i + 1}`;
+    
+    btn.addEventListener('click', () => {
+      activeSlotIdx = i;
+      if (hasData) loadFromSlot(i);
+      else renderSlotUI();
+    });
+    container.appendChild(btn);
+  }
+}
+
+// EXPORT JSON FILE
+document.getElementById('exportBtn').addEventListener('click', () => {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ bpm, tracks }, null, 2));
+  const a = document.createElement('a');
+  a.setAttribute("href", dataStr);
+  a.setAttribute("download", `hapax_preset_${Date.now()}.json`);
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+
+// IMPORT JSON FILE
+document.getElementById('importBtn').addEventListener('click', () => {
+  document.getElementById('fileInput').click();
+});
+
+document.getElementById('fileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (evt) => {
+    try {
+      const imported = JSON.parse(evt.target.result);
+      if (imported.tracks && imported.bpm) {
+        tracks = imported.tracks;
+        bpm = imported.bpm;
+        document.getElementById('bpm').value = bpm;
+        renderTrackBar();
+        syncSidePanelUI();
+        renderView();
+        autoSaveCurrentState();
+      }
+    } catch(err) {
+      alert("Fehlerhafte JSON Datei!");
+    }
+  };
+  reader.readAsText(file);
+});
+
+document.getElementById('saveSlotBtn').addEventListener('click', () => {
+  saveToSlot(activeSlotIdx);
+});
+
+// TRACK BAR UI
 function renderTrackBar() {
   const container = document.getElementById('trackBarContainer');
   container.innerHTML = '';
@@ -453,6 +592,7 @@ function renderTrackBar() {
       e.stopPropagation();
       t.muted = !t.muted;
       renderTrackBar();
+      autoSaveCurrentState();
     });
 
     const soloBtn = document.createElement('button');
@@ -462,6 +602,7 @@ function renderTrackBar() {
       e.stopPropagation();
       t.soloed = !t.soloed;
       renderTrackBar();
+      autoSaveCurrentState();
     });
 
     strip.appendChild(btn);
@@ -471,14 +612,13 @@ function renderTrackBar() {
   });
 }
 
-// UPDATE MIDI DESTINATION DROPDOWN
 function populateMidiOutputs() {
   const select = document.getElementById('trackMidiOutputSelect');
   select.innerHTML = '';
 
   const defaultOpt = document.createElement('option');
   defaultOpt.value = "";
-  defaultOpt.innerText = "Kein Ausgang ausgewäht";
+  defaultOpt.innerText = "Kein Ausgang ausgewählt";
   select.appendChild(defaultOpt);
 
   if (midiAccessRef) {
@@ -490,12 +630,9 @@ function populateMidiOutputs() {
       select.appendChild(opt);
     });
   }
-
-  // Set selected value based on current active track
   select.value = tracks[activeTrackIdx].outputDeviceId;
 }
 
-// SYNC SIDE PANEL BUTTONS WITH ACTIVE TRACK STATE
 function syncSidePanelUI() {
   const t = tracks[activeTrackIdx];
 
@@ -521,7 +658,6 @@ async function initMIDI() {
       midiAccessRef = await navigator.requestMIDIAccess();
       document.getElementById('midiStatus').innerText = "MIDI Aktiv";
 
-      // Set default output for all tracks if available
       const outputs = Array.from(midiAccessRef.outputs.values());
       if (outputs.length > 0) {
         tracks.forEach(t => {
@@ -542,26 +678,17 @@ async function initMIDI() {
   }
 }
 
-// SEND MIDI ON SPECIFIC TRACK DESTINATION & CHANNEL
 function sendMidiMessage(track, statusByte, note, velocity) {
-  if (!midiAccessRef) return;
-  if (!track.outputDeviceId) return;
-
+  if (!midiAccessRef || !track.outputDeviceId) return;
   const output = midiAccessRef.outputs.get(track.outputDeviceId);
   if (output) {
-    // Channel is masked to 0-15 (0x00 to 0x0F)
     const channelStatus = statusByte | (track.channel & 0x0F);
     output.send([channelStatus, note, velocity]);
   }
 }
 
-function playTrackNote(track, midiNote) {
-  sendMidiMessage(track, 0x90, midiNote, 100);
-}
-
-function stopTrackNote(track, midiNote) {
-  sendMidiMessage(track, 0x80, midiNote, 0);
-}
+function playTrackNote(track, midiNote) { sendMidiMessage(track, 0x90, midiNote, 100); }
+function stopTrackNote(track, midiNote) { sendMidiMessage(track, 0x80, midiNote, 0); }
 
 function playNote(midiNote) {
   const t = tracks[activeTrackIdx];
@@ -577,7 +704,6 @@ function stopNote(midiNote) {
   updateChordDisplay();
 }
 
-// CHORD RECOGNITION
 function updateChordDisplay() {
   const el = document.getElementById('chordDisplay');
   if (activePressedNotes.size === 0) { el.innerText = '--'; return; }
@@ -612,7 +738,6 @@ function getNoteDetails(midi, track) {
   return { name: `${name}${octave}`, midi, isInScale, isRoot };
 }
 
-// LINKED NOTE HIGHLIGHTS
 function highlightSameNotes(targetMidi) {
   document.querySelectorAll('.pad').forEach(p => {
     if (parseInt(p.dataset.midi) === targetMidi) p.classList.add('same-note-highlight');
@@ -623,7 +748,6 @@ function clearSameNoteHighlights() {
   document.querySelectorAll('.pad').forEach(p => p.classList.remove('same-note-highlight'));
 }
 
-// RENDER ACTIVE VIEW
 function renderView() {
   viewContainer.innerHTML = '';
   const t = tracks[activeTrackIdx];
@@ -633,7 +757,6 @@ function renderView() {
   else if (t.mode === 'step') renderStepSeq(t);
 }
 
-// 1. HEX GRID
 function renderHexGrid(t) {
   const wrapper = document.createElement('div');
   wrapper.className = 'hex-wrapper';
@@ -660,7 +783,6 @@ function renderHexGrid(t) {
   viewContainer.appendChild(wrapper);
 }
 
-// 2. SQUARE GRID
 function renderSquareGrid(t) {
   const grid = document.createElement('div');
   grid.className = 'square-grid';
@@ -704,7 +826,6 @@ function bindPadEvents(pad, midiNote) {
   pad.addEventListener('mouseup', end);
 }
 
-// 3. STEP SEQUENCER
 function renderStepSeq(t) {
   const wrapper = document.createElement('div');
   wrapper.className = 'seq-wrapper';
@@ -725,6 +846,7 @@ function renderStepSeq(t) {
       pad.addEventListener('click', () => {
         t.seqGridState[r][c] = !t.seqGridState[r][c];
         pad.classList.toggle('active-step', t.seqGridState[r][c]);
+        autoSaveCurrentState();
         if (t.seqGridState[r][c]) {
           playNote(pitch);
           setTimeout(() => stopNote(pitch), 150);
@@ -736,7 +858,6 @@ function renderStepSeq(t) {
     wrapper.appendChild(rowEl);
   }
 
-  // CHANCE ROW
   const chanceRow = document.createElement('div');
   chanceRow.className = 'chance-row';
   for (let c = 0; c < seqCols; c++) {
@@ -749,7 +870,10 @@ function renderStepSeq(t) {
       if (t.stepChance[c] === val) opt.selected = true;
       select.appendChild(opt);
     });
-    select.addEventListener('change', (e) => t.stepChance[c] = parseInt(e.target.value));
+    select.addEventListener('change', (e) => {
+      t.stepChance[c] = parseInt(e.target.value);
+      autoSaveCurrentState();
+    });
     chanceRow.appendChild(select);
   }
   wrapper.appendChild(chanceRow);
@@ -757,7 +881,6 @@ function renderStepSeq(t) {
   viewContainer.appendChild(wrapper);
 }
 
-// MULTI-TRACK SEQUENCER ENGINE
 function updatePlayheadUI(step) {
   const t = tracks[activeTrackIdx];
   if (t.mode !== 'step') return;
@@ -774,7 +897,6 @@ function runSequencer() {
 
   const anySolo = tracks.some(t => t.soloed);
 
-  // Play all active tracks in parallel with their own channel & output device
   tracks.forEach(t => {
     if (t.muted) return;
     if (anySolo && !t.soloed) return;
@@ -795,14 +917,15 @@ function runSequencer() {
   timerId = setTimeout(runSequencer, (60 / bpm / 4) * 1000);
 }
 
-// LISTENERS FOR TRACK MIDI DESTINATION AND CHANNEL
 document.getElementById('trackMidiOutputSelect').addEventListener('change', (e) => {
   tracks[activeTrackIdx].outputDeviceId = e.target.value;
+  autoSaveCurrentState();
 });
 
 document.getElementById('channelSelect').addEventListener('change', (e) => {
   tracks[activeTrackIdx].channel = parseInt(e.target.value);
   renderTrackBar();
+  autoSaveCurrentState();
 });
 
 document.querySelectorAll('.ctrl-pad').forEach(pad => {
@@ -818,6 +941,7 @@ document.querySelectorAll('.ctrl-pad').forEach(pad => {
 
     syncSidePanelUI();
     renderView();
+    autoSaveCurrentState();
   });
 });
 
@@ -833,11 +957,16 @@ document.getElementById('playBtn').addEventListener('click', () => {
   }
 });
 
-document.getElementById('bpm').addEventListener('change', (e) => bpm = parseInt(e.target.value));
+document.getElementById('bpm').addEventListener('change', (e) => {
+  bpm = parseInt(e.target.value);
+  autoSaveCurrentState();
+});
 
-// Init
+// INITIALIZATION
+loadAutoSaveState();
 initMIDI();
 renderTrackBar();
+renderSlotUI();
 syncSidePanelUI();
 renderView();
 </script>
