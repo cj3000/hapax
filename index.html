@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Hapax 4-Track Workstation - Multi-Out & Save</title>
+  <title>Hapax Workstation - Advanced Engine</title>
   <style>
     :root {
       --bg: #0d0e11;
@@ -18,6 +18,7 @@
       --track-active: #ff9900;
       --mute: #e74c3c;
       --solo: #f1c40f;
+      --hex-size: 60px; /* Dynamisch steuerbar */
     }
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -32,7 +33,7 @@
     }
     .app-container {
       width: 100%;
-      max-width: 1280px;
+      max-width: 1350px;
       background: var(--card);
       border-radius: 14px;
       border: 1px solid var(--border);
@@ -95,9 +96,7 @@
       border-color: var(--track-active);
       background: #232734;
     }
-    .track-strip.active .track-btn {
-      color: var(--track-active);
-    }
+    .track-strip.active .track-btn { color: var(--track-active); }
     .ms-btn {
       width: 26px;
       background: #1a1c24;
@@ -111,16 +110,10 @@
     .ms-btn.muted { background: var(--mute); color: #fff; }
     .ms-btn.soloed { background: var(--solo); color: #000; }
 
-    .workspace {
-      display: flex;
-      gap: 12px;
-    }
-    .main-view {
-      flex: 1;
-      min-width: 0;
-    }
+    .workspace { display: flex; gap: 12px; }
+    .main-view { flex: 1; min-width: 0; }
     .side-panel {
-      width: 230px;
+      width: 240px;
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -186,6 +179,7 @@
     .pad-note { font-size: 0.8rem; font-weight: bold; pointer-events: none; }
     .pad-midi { font-size: 0.6rem; opacity: 0.6; margin-top: 1px; pointer-events: none; }
 
+    /* DYNAMISCHES HEX GRID */
     .hex-wrapper {
       display: flex;
       flex-direction: column;
@@ -195,11 +189,11 @@
       border-radius: 10px;
       overflow-x: auto;
     }
-    .hex-row { display: flex; margin-bottom: -16px; }
-    .hex-row:nth-child(even) { transform: translateX(31px); }
+    .hex-row { display: flex; margin-bottom: calc(var(--hex-size) * -0.25); }
+    .hex-row:nth-child(even) { transform: translateX(calc(var(--hex-size) * 0.52)); }
     .hex-pad {
-      width: 60px;
-      height: 68px;
+      width: var(--hex-size);
+      height: calc(var(--hex-size) * 1.13);
       margin: 0 2px;
       border: none;
       clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
@@ -213,11 +207,9 @@
       padding: 10px;
       border-radius: 10px;
     }
-    .square-pad {
-      aspect-ratio: 1;
-      border-radius: 6px;
-    }
+    .square-pad { aspect-ratio: 1; border-radius: 6px; }
 
+    /* STEP SEQUENCER & ELEKTRON PAGE NAV */
     .seq-wrapper {
       display: flex;
       flex-direction: column;
@@ -229,12 +221,36 @@
     .seq-row { display: flex; gap: 4px; }
     .seq-pad {
       flex: 1;
-      height: 44px;
+      height: 40px;
       border-radius: 5px;
       font-size: 0.65rem;
     }
     .seq-pad.active-step { background: var(--accent); color: #000; font-weight: bold; }
     .seq-pad.current-playhead { border: 2px solid #fff; box-shadow: 0 0 10px #fff; }
+
+    .seq-nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #12141c;
+      padding: 6px 10px;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      border: 1px solid var(--border);
+    }
+    .page-btn-group { display: flex; gap: 4px; }
+    .page-btn {
+      background: #1a1c24;
+      border: 1px solid var(--border);
+      color: #8a94a6;
+      padding: 4px 10px;
+      font-size: 0.68rem;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    .page-btn.active-page { background: var(--accent); color: #000; }
+    .page-btn.playing-page { border-color: #fff; box-shadow: 0 0 6px #fff; }
 
     .chance-row {
       display: flex;
@@ -254,7 +270,6 @@
       color: #8a94a6;
     }
 
-    /* STORAGE UI STYLES */
     .slot-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -271,19 +286,9 @@
       cursor: pointer;
       text-align: center;
     }
-    .slot-btn.has-data {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-    .slot-btn.active-slot {
-      background: var(--accent);
-      color: #000;
-      font-weight: bold;
-    }
-    .io-btn-row {
-      display: flex;
-      gap: 4px;
-    }
+    .slot-btn.has-data { border-color: var(--accent); color: var(--accent); }
+    .slot-btn.active-slot { background: var(--accent); color: #000; font-weight: bold; }
+    .io-btn-row { display: flex; gap: 4px; }
     .io-btn {
       flex: 1;
       background: #252836;
@@ -310,7 +315,7 @@
 
 <div class="app-container">
   <header>
-    <h1>HAPAX // 4-TRACK WORKSTATION</h1>
+    <h1>HAPAX // WORKSTATION PRO</h1>
     <div class="chord-display" id="chordDisplay">--</div>
     <div id="midiStatus" style="font-size: 0.75rem; color: var(--accent);">MIDI Init...</div>
   </header>
@@ -321,6 +326,12 @@
     <div class="main-view" id="viewContainer"></div>
 
     <div class="side-panel">
+
+      <!-- HEX ZOOM SLIDER (TEMPORÄR) -->
+      <div style="background: #181b24; padding: 6px; border-radius: 6px; border: 1px solid var(--accent);">
+        <div class="panel-section-title" style="color:var(--accent);">Hex Pad Size (Zoom)</div>
+        <input type="range" id="hexZoomSlider" min="35" max="100" value="60" style="width: 100%;">
+      </div>
 
       <!-- PRESET STORAGE SLOTS -->
       <div>
@@ -334,16 +345,50 @@
         </div>
       </div>
 
-      <div>
-        <div class="panel-section-title">MIDI Destination</div>
-        <select id="trackMidiOutputSelect" style="width:100%;">
-          <option value="">Kein Ausgang</option>
-        </select>
+      <!-- ROUTING & ENGINE CONFIG -->
+      <div style="display: flex; gap: 6px;">
+        <div style="flex:1;">
+          <div class="panel-section-title">MIDI Out</div>
+          <select id="trackMidiOutputSelect" style="width:100%;"></select>
+        </div>
+        <div style="width: 80px;">
+          <div class="panel-section-title">Channel</div>
+          <select id="channelSelect" style="width:100%;"></select>
+        </div>
       </div>
 
+      <!-- POLYRHYTHM LENGTH & ARPEGGIATOR -->
+      <div style="display: flex; gap: 6px;">
+        <div style="flex:1;">
+          <div class="panel-section-title">Track Length</div>
+          <select id="trackLengthSelect" style="width:100%;"></select>
+        </div>
+        <div style="flex:1;">
+          <div class="panel-section-title">Arpeggiator</div>
+          <select id="arpModeSelect" style="width:100%;">
+            <option value="off">OFF</option>
+            <option value="up">UP</option>
+            <option value="down">DOWN</option>
+            <option value="updown">UP-DN</option>
+            <option value="random">RAND</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- CHORD MODE SELECTOR -->
       <div>
-        <div class="panel-section-title">MIDI Channel</div>
-        <select id="channelSelect" style="width:100%;"></select>
+        <div class="panel-section-title">Chord Mode</div>
+        <select id="chordModeSelect" style="width:100%;">
+          <option value="single">Single Note (Off)</option>
+          <option value="maj">Major Triad</option>
+          <option value="min">Minor Triad</option>
+          <option value="dom7">Dominant 7th</option>
+
+          <option value="maj7">Major 7th</option>
+          <option value="min7">Minor 7th</option>
+          <option value="sus4">Sus4</option>
+          <option value="dim">Diminished</option>
+        </select>
       </div>
 
       <div>
@@ -402,12 +447,24 @@ const SCALES = {
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 };
 
+const CHORD_FORMULAS = {
+  single: [0],
+  maj: [0, 4, 7],
+  min: [0, 3, 7],
+  dom7: [0, 4, 7, 10],
+  maj7: [0, 4, 7, 11],
+  min7: [0, 3, 7, 10],
+  sus4: [0, 5, 7],
+  dim: [0, 3, 6]
+};
+
 const seqRows = 8;
-const seqCols = 16;
+const maxSeqSteps = 64;
 
 let midiAccessRef = null;
 let activeTrackIdx = 0;
 let activeSlotIdx = 0;
+let currentSeqPage = 0; // 0..3 (1-16, 17-32, 33-48, 49-64)
 
 let tracks = [
   createTrackState(0, 0),
@@ -427,25 +484,41 @@ function createTrackState(id, defaultCh) {
     rowOffset: 5,
     muted: false,
     soloed: false,
-    seqGridState: Array(seqRows).fill(null).map(() => Array(seqCols).fill(false)),
-    stepChance: Array(seqCols).fill(100)
+    length: 16, // Polyrhythm length (2..64)
+    chordMode: 'single',
+    arpMode: 'off',
+    currentStep: 0,
+    seqGridState: Array(seqRows).fill(null).map(() => Array(maxSeqSteps).fill(false)),
+    stepChance: Array(maxSeqSteps).fill(100)
   };
 }
 
 let activePressedNotes = new Set();
 let isPlaying = false;
-let currentStep = 0;
+let globalStep = 0;
 let bpm = 120;
 let timerId = null;
+let arpTimerId = null;
+let currentArpIndex = 0;
+let currentArpNotes = [];
 
 const viewContainer = document.getElementById('viewContainer');
 
-// BUILD MIDI CHANNEL SELECTOR
+// BUILD TRACK LENGTH SELECTOR (2..64)
+const trackLengthSelect = document.getElementById('trackLengthSelect');
+for (let len = 2; len <= 64; len++) {
+  const opt = document.createElement('option');
+  opt.value = len;
+  opt.innerText = `${len} Steps`;
+  trackLengthSelect.appendChild(opt);
+}
+
+// BUILD MIDI CHANNELS
 const channelSelect = document.getElementById('channelSelect');
 for (let ch = 0; ch < 16; ch++) {
   const opt = document.createElement('option');
   opt.value = ch;
-  opt.innerText = `Channel ${ch + 1}`;
+  opt.innerText = `Ch ${ch + 1}`;
   channelSelect.appendChild(opt);
 }
 
@@ -460,12 +533,14 @@ NOTE_NAMES.forEach((note, idx) => {
   rootPadGrid.appendChild(pad);
 });
 
-// --- STORAGE SYSTEM ENGINE ---
+// HEX ZOOM CONTROLLER
+document.getElementById('hexZoomSlider').addEventListener('input', (e) => {
+  document.documentElement.style.setProperty('--hex-size', `${e.target.value}px`);
+});
+
+// STORAGE ENGINE
 function saveToSlot(slotIdx) {
-  const payload = {
-    bpm: bpm,
-    tracks: tracks
-  };
+  const payload = { bpm, tracks };
   localStorage.setItem(`hapax_slot_${slotIdx}`, JSON.stringify(payload));
   autoSaveCurrentState();
   renderSlotUI();
@@ -474,7 +549,6 @@ function saveToSlot(slotIdx) {
 function loadFromSlot(slotIdx) {
   const raw = localStorage.getItem(`hapax_slot_${slotIdx}`);
   if (!raw) return;
-  
   const parsed = JSON.parse(raw);
   bpm = parsed.bpm || 120;
   tracks = parsed.tracks;
@@ -506,13 +580,11 @@ function loadAutoSaveState() {
 function renderSlotUI() {
   const container = document.getElementById('slotContainer');
   container.innerHTML = '';
-
   for (let i = 0; i < 8; i++) {
     const hasData = localStorage.getItem(`hapax_slot_${i}`) !== null;
     const btn = document.createElement('button');
     btn.className = `slot-btn ${hasData ? 'has-data' : ''} ${i === activeSlotIdx ? 'active-slot' : ''}`;
     btn.innerText = `P${i + 1}`;
-    
     btn.addEventListener('click', () => {
       activeSlotIdx = i;
       if (hasData) loadFromSlot(i);
@@ -522,26 +594,22 @@ function renderSlotUI() {
   }
 }
 
-// EXPORT JSON FILE
+// EXPORT / IMPORT
 document.getElementById('exportBtn').addEventListener('click', () => {
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ bpm, tracks }, null, 2));
   const a = document.createElement('a');
   a.setAttribute("href", dataStr);
-  a.setAttribute("download", `hapax_preset_${Date.now()}.json`);
+  a.setAttribute("download", `hapax_project_${Date.now()}.json`);
   document.body.appendChild(a);
   a.click();
   a.remove();
 });
 
-// IMPORT JSON FILE
-document.getElementById('importBtn').addEventListener('click', () => {
-  document.getElementById('fileInput').click();
-});
+document.getElementById('importBtn').addEventListener('click', () => document.getElementById('fileInput').click());
 
 document.getElementById('fileInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-
   const reader = new FileReader();
   reader.onload = (evt) => {
     try {
@@ -555,18 +623,14 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
         renderView();
         autoSaveCurrentState();
       }
-    } catch(err) {
-      alert("Fehlerhafte JSON Datei!");
-    }
+    } catch(err) { alert("Fehlerhafte JSON Datei!"); }
   };
   reader.readAsText(file);
 });
 
-document.getElementById('saveSlotBtn').addEventListener('click', () => {
-  saveToSlot(activeSlotIdx);
-});
+document.getElementById('saveSlotBtn').addEventListener('click', () => saveToSlot(activeSlotIdx));
 
-// TRACK BAR UI
+// TRACK STRIP UI
 function renderTrackBar() {
   const container = document.getElementById('trackBarContainer');
   container.innerHTML = '';
@@ -577,7 +641,7 @@ function renderTrackBar() {
 
     const btn = document.createElement('button');
     btn.className = 'track-btn';
-    btn.innerText = `TRK ${idx + 1} [Ch ${t.channel + 1}]`;
+    btn.innerText = `TRK ${idx + 1} [Ch ${t.channel + 1}] (${t.length}st)`;
     btn.addEventListener('click', () => {
       activeTrackIdx = idx;
       renderTrackBar();
@@ -615,10 +679,9 @@ function renderTrackBar() {
 function populateMidiOutputs() {
   const select = document.getElementById('trackMidiOutputSelect');
   select.innerHTML = '';
-
   const defaultOpt = document.createElement('option');
   defaultOpt.value = "";
-  defaultOpt.innerText = "Kein Ausgang ausgewählt";
+  defaultOpt.innerText = "Kein Ausgang";
   select.appendChild(defaultOpt);
 
   if (midiAccessRef) {
@@ -638,6 +701,9 @@ function syncSidePanelUI() {
 
   document.getElementById('trackMidiOutputSelect').value = t.outputDeviceId;
   document.getElementById('channelSelect').value = t.channel;
+  document.getElementById('trackLengthSelect').value = t.length;
+  document.getElementById('chordModeSelect').value = t.chordMode || 'single';
+  document.getElementById('arpModeSelect').value = t.arpMode || 'off';
 
   const updateSection = (type, val) => {
     document.querySelectorAll(`.ctrl-pad[data-type="${type}"]`).forEach(p => {
@@ -660,9 +726,7 @@ async function initMIDI() {
 
       const outputs = Array.from(midiAccessRef.outputs.values());
       if (outputs.length > 0) {
-        tracks.forEach(t => {
-          if (!t.outputDeviceId) t.outputDeviceId = outputs[0].id;
-        });
+        tracks.forEach(t => { if (!t.outputDeviceId) t.outputDeviceId = outputs[0].id; });
       }
 
       populateMidiOutputs();
@@ -690,18 +754,70 @@ function sendMidiMessage(track, statusByte, note, velocity) {
 function playTrackNote(track, midiNote) { sendMidiMessage(track, 0x90, midiNote, 100); }
 function stopTrackNote(track, midiNote) { sendMidiMessage(track, 0x80, midiNote, 0); }
 
-function playNote(midiNote) {
+// CHORD & PAD PLAYING LOGIC
+function playNoteWithChord(midiNote) {
   const t = tracks[activeTrackIdx];
-  playTrackNote(t, midiNote);
-  activePressedNotes.add(midiNote % 12);
+  const intervals = CHORD_FORMULAS[t.chordMode || 'single'];
+
+  if (t.arpMode && t.arpMode !== 'off') {
+    startArpeggiator(t, midiNote, intervals);
+  } else {
+    intervals.forEach(interval => {
+      const targetNote = midiNote + interval;
+      playTrackNote(t, targetNote);
+      activePressedNotes.add(targetNote % 12);
+    });
+  }
   updateChordDisplay();
 }
 
-function stopNote(midiNote) {
+function stopNoteWithChord(midiNote) {
   const t = tracks[activeTrackIdx];
-  stopTrackNote(t, midiNote);
-  activePressedNotes.delete(midiNote % 12);
+  const intervals = CHORD_FORMULAS[t.chordMode || 'single'];
+
+  if (t.arpMode && t.arpMode !== 'off') {
+    stopArpeggiator();
+  } else {
+    intervals.forEach(interval => {
+      const targetNote = midiNote + interval;
+      stopTrackNote(t, targetNote);
+      activePressedNotes.delete(targetNote % 12);
+    });
+  }
   updateChordDisplay();
+}
+
+// ARPEGGIATOR ENGINE
+function startArpeggiator(track, rootNote, intervals) {
+  stopArpeggiator();
+  currentArpNotes = intervals.map(i => rootNote + i);
+  currentArpIndex = 0;
+
+  const stepTime = (60 / bpm / 4) * 1000;
+  arpTimerId = setInterval(() => {
+    if (currentArpNotes.length === 0) return;
+    
+    let noteToPlay = currentArpNotes[0];
+    if (track.arpMode === 'up') {
+      noteToPlay = currentArpNotes[currentArpIndex % currentArpNotes.length];
+      currentArpIndex++;
+    } else if (track.arpMode === 'down') {
+      noteToPlay = currentArpNotes[(currentArpNotes.length - 1 - currentArpIndex) % currentArpNotes.length];
+      currentArpIndex++;
+    } else if (track.arpMode === 'random') {
+      noteToPlay = currentArpNotes[Math.floor(Math.random() * currentArpNotes.length)];
+    }
+
+    playTrackNote(track, noteToPlay);
+    setTimeout(() => stopTrackNote(track, noteToPlay), stepTime * 0.8);
+  }, stepTime);
+}
+
+function stopArpeggiator() {
+  if (arpTimerId) {
+    clearInterval(arpTimerId);
+    arpTimerId = null;
+  }
 }
 
 function updateChordDisplay() {
@@ -810,14 +926,14 @@ function bindPadEvents(pad, midiNote) {
     e.preventDefault();
     pad.classList.add('playing');
     highlightSameNotes(midiNote);
-    playNote(midiNote);
+    playNoteWithChord(midiNote);
   };
 
   const end = (e) => {
     e.preventDefault();
     pad.classList.remove('playing');
     clearSameNoteHighlights();
-    stopNote(midiNote);
+    stopNoteWithChord(midiNote);
   };
 
   pad.addEventListener('touchstart', start);
@@ -826,9 +942,43 @@ function bindPadEvents(pad, midiNote) {
   pad.addEventListener('mouseup', end);
 }
 
+// 64-STEP SEQUENCER WITH ELEKTRON PAGE NAV
 function renderStepSeq(t) {
   const wrapper = document.createElement('div');
   wrapper.className = 'seq-wrapper';
+
+  // ELEKTRON PAGE BUTTONS (1-16, 17-32, 33-48, 49-64)
+  const navBar = document.createElement('div');
+  navBar.className = 'seq-nav-bar';
+
+  const title = document.createElement('span');
+  title.style.fontSize = '0.75rem';
+  title.style.fontWeight = 'bold';
+  title.innerText = `Track ${activeTrackIdx + 1} (${t.length} Steps)`;
+  navBar.appendChild(title);
+
+  const btnGroup = document.createElement('div');
+  btnGroup.className = 'page-btn-group';
+
+  const maxPages = Math.ceil(t.length / 16);
+  for (let p = 0; p < maxPages; p++) {
+    const btn = document.createElement('button');
+    btn.className = `page-btn ${p === currentSeqPage ? 'active-page' : ''}`;
+    btn.innerText = `${p * 16 + 1}-${Math.min((p + 1) * 16, t.length)}`;
+    btn.dataset.page = p;
+
+    btn.addEventListener('click', () => {
+      currentSeqPage = p;
+      renderView();
+    });
+    btnGroup.appendChild(btn);
+  }
+  navBar.appendChild(btnGroup);
+  wrapper.appendChild(navBar);
+
+  // STEP MATRIX FOR CURRENT VISIBLE PAGE
+  const startStep = currentSeqPage * 16;
+  const endStep = Math.min(startStep + 16, t.length);
 
   for (let r = seqRows - 1; r >= 0; r--) {
     const rowEl = document.createElement('div');
@@ -836,7 +986,7 @@ function renderStepSeq(t) {
     const pitch = t.rootMidi + r * 2;
     const details = getNoteDetails(pitch, t);
 
-    for (let c = 0; c < seqCols; c++) {
+    for (let c = startStep; c < endStep; c++) {
       const pad = document.createElement('div');
       pad.className = `pad seq-pad ${t.seqGridState[r][c] ? 'active-step' : ''}`;
       pad.dataset.row = r;
@@ -848,8 +998,8 @@ function renderStepSeq(t) {
         pad.classList.toggle('active-step', t.seqGridState[r][c]);
         autoSaveCurrentState();
         if (t.seqGridState[r][c]) {
-          playNote(pitch);
-          setTimeout(() => stopNote(pitch), 150);
+          playNoteWithChord(pitch);
+          setTimeout(() => stopNoteWithChord(pitch), 150);
         }
       });
 
@@ -858,9 +1008,10 @@ function renderStepSeq(t) {
     wrapper.appendChild(rowEl);
   }
 
+  // CHANCE ROW FOR VISIBLE STEPS
   const chanceRow = document.createElement('div');
   chanceRow.className = 'chance-row';
-  for (let c = 0; c < seqCols; c++) {
+  for (let c = startStep; c < endStep; c++) {
     const select = document.createElement('select');
     select.className = 'chance-select';
     [100, 75, 50, 25, 0].forEach(val => {
@@ -881,17 +1032,27 @@ function renderStepSeq(t) {
   viewContainer.appendChild(wrapper);
 }
 
-function updatePlayheadUI(step) {
+function updatePlayheadUI() {
   const t = tracks[activeTrackIdx];
   if (t.mode !== 'step') return;
 
+  const currentTrackStep = t.currentStep;
+  const activePageOfPlayhead = Math.floor(currentTrackStep / 16);
+
+  // Highlight page buttons
+  document.querySelectorAll('.page-btn').forEach(btn => {
+    btn.classList.toggle('playing-page', parseInt(btn.dataset.page) === activePageOfPlayhead);
+  });
+
+  // Highlight active step pad
   const allPads = document.querySelectorAll('.seq-pad');
   allPads.forEach(p => p.classList.remove('current-playhead'));
   allPads.forEach(p => {
-    if (parseInt(p.dataset.col) === step) p.classList.add('current-playhead');
+    if (parseInt(p.dataset.col) === currentTrackStep) p.classList.add('current-playhead');
   });
 }
 
+// POLYRHYTHMIC SEQUENCER ENGINE
 function runSequencer() {
   if (!isPlaying) return;
 
@@ -901,22 +1062,27 @@ function runSequencer() {
     if (t.muted) return;
     if (anySolo && !t.soloed) return;
 
-    if (Math.random() * 100 <= t.stepChance[currentStep]) {
+    // Polyrhythmik Step Calculation: Every track increments modulo its OWN length
+    const step = t.currentStep;
+
+    if (Math.random() * 100 <= t.stepChance[step]) {
       for (let r = 0; r < seqRows; r++) {
-        if (t.seqGridState[r][currentStep]) {
+        if (t.seqGridState[r][step]) {
           const pitch = t.rootMidi + r * 2;
           playTrackNote(t, pitch);
           setTimeout(() => stopTrackNote(t, pitch), 150);
         }
       }
     }
+
+    t.currentStep = (t.currentStep + 1) % t.length;
   });
 
-  updatePlayheadUI(currentStep);
-  currentStep = (currentStep + 1) % seqCols;
+  updatePlayheadUI();
   timerId = setTimeout(runSequencer, (60 / bpm / 4) * 1000);
 }
 
+// LISTENERS FOR NEW CONTROLS
 document.getElementById('trackMidiOutputSelect').addEventListener('change', (e) => {
   tracks[activeTrackIdx].outputDeviceId = e.target.value;
   autoSaveCurrentState();
@@ -925,6 +1091,26 @@ document.getElementById('trackMidiOutputSelect').addEventListener('change', (e) 
 document.getElementById('channelSelect').addEventListener('change', (e) => {
   tracks[activeTrackIdx].channel = parseInt(e.target.value);
   renderTrackBar();
+  autoSaveCurrentState();
+});
+
+document.getElementById('trackLengthSelect').addEventListener('change', (e) => {
+  tracks[activeTrackIdx].length = parseInt(e.target.value);
+  if (tracks[activeTrackIdx].currentStep >= tracks[activeTrackIdx].length) {
+    tracks[activeTrackIdx].currentStep = 0;
+  }
+  renderTrackBar();
+  renderView();
+  autoSaveCurrentState();
+});
+
+document.getElementById('chordModeSelect').addEventListener('change', (e) => {
+  tracks[activeTrackIdx].chordMode = e.target.value;
+  autoSaveCurrentState();
+});
+
+document.getElementById('arpModeSelect').addEventListener('change', (e) => {
+  tracks[activeTrackIdx].arpMode = e.target.value;
   autoSaveCurrentState();
 });
 
@@ -949,11 +1135,11 @@ document.getElementById('playBtn').addEventListener('click', () => {
   isPlaying = !isPlaying;
   document.getElementById('playBtn').innerText = isPlaying ? 'STOP' : 'PLAY ALL';
   if (isPlaying) {
-    currentStep = 0;
+    tracks.forEach(t => t.currentStep = 0);
     runSequencer();
   } else {
     clearTimeout(timerId);
-    updatePlayheadUI(-1);
+    updatePlayheadUI();
   }
 });
 
