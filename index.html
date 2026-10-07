@@ -3,10 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Web Audio Sequencer & Hex Grid</title>
+  <title>Audio Workstation & Sequencer</title>
   <style>
     /* =========================================================
-       1. TOUCH & TEXTMARKIERUNG DEAKTIVIEREN (iPad/Mobile Fix)
+       1. GLOBAL RESET & TOUCH OPTIMIERUNG
        ========================================================= */
     * {
       box-sizing: border-box;
@@ -20,106 +20,118 @@
 
     body {
       margin: 0;
-      padding: 20px;
+      padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #1a1a1e;
-      color: #e0e0e0;
+      background-color: #121214;
+      color: #e4e4e7;
       touch-action: manipulation;
     }
 
-    h1, h2, h3 {
-      margin-top: 0;
+    h1, h3 {
+      margin: 0 0 12px 0;
+      font-weight: 600;
     }
 
     .container {
-      max-width: 900px;
+      max-width: 960px;
       margin: 0 auto;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
     }
 
     .panel {
-      background: #2a2a30;
+      background: #1c1c21;
+      border: 1px solid #27272a;
       border-radius: 12px;
       padding: 16px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
 
-    /* Controls Header */
+    /* =========================================================
+       2. CONTROLS BAR
+       ========================================================= */
     .controls-row {
       display: flex;
       flex-wrap: wrap;
       gap: 16px;
       align-items: center;
+      justify-content: space-between;
     }
 
     .control-group {
       display: flex;
       flex-direction: column;
       gap: 4px;
+      min-width: 120px;
     }
 
     label {
-      font-size: 12px;
+      font-size: 11px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      color: #a0a0ab;
+      color: #a1a1aa;
     }
 
     button {
-      background: #3b82f6;
-      color: white;
+      background: #2563eb;
+      color: #ffffff;
       border: none;
-      padding: 10px 18px;
+      padding: 10px 16px;
       border-radius: 8px;
-      font-weight: bold;
+      font-weight: 600;
+      font-size: 14px;
       cursor: pointer;
       touch-action: manipulation;
+      transition: background 0.15s ease;
     }
 
     button:active {
-      background: #2563eb;
+      background: #1d4ed8;
     }
 
     button.active {
-      background: #10b981;
+      background: #059669;
     }
 
     input[type="range"] {
-      accent-color: #3b82f6;
+      accent-color: #2563eb;
+      width: 100%;
     }
 
     /* =========================================================
-       2. HEX GRID & PADS
+       3. PADS / HEX GRID
        ========================================================= */
+    .held-notes-display {
+      font-size: 13px;
+      color: #f59e0b;
+      margin-bottom: 12px;
+    }
+
     .pad-grid {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 10px;
-      margin-top: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+      gap: 8px;
     }
 
     .pad {
-      aspect-ratio: 1;
-      background: #3f3f46;
-      border: 2px solid #52525b;
-      border-radius: 10px;
+      height: 60px;
+      background: #27272a;
+      border: 2px solid #3f3f46;
+      border-radius: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-weight: bold;
-      font-size: 14px;
+      font-weight: 700;
+      font-size: 13px;
       cursor: pointer;
-      touch-action: none; /* Wichtig für schnelles iPad-Touch Response */
-      transition: background 0.05s, transform 0.05s;
+      touch-action: none;
+      transition: background 0.05s, transform 0.05s, border-color 0.05s;
     }
 
     .pad.active {
-      background: #3b82f6;
+      background: #2563eb;
       border-color: #60a5fa;
-      transform: scale(0.96);
-      box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+      transform: scale(0.95);
     }
 
     .pad.held {
@@ -127,16 +139,8 @@
       background: #78350f;
     }
 
-    /* Display für gehaltene Noten */
-    .held-notes-display {
-      font-size: 14px;
-      color: #f59e0b;
-      min-height: 20px;
-      margin-top: 8px;
-    }
-
     /* =========================================================
-       3. TRACK SEQUENCER
+       4. TRACK SEQUENCER (FIX FÜR LAYOUT-VERSCHIEBUNG)
        ========================================================= */
     .track-container {
       display: flex;
@@ -145,23 +149,29 @@
     }
 
     .track {
-      background: #18181b;
-      padding: 10px;
+      background: #121214;
+      border: 1px solid #27272a;
+      padding: 12px;
       border-radius: 8px;
     }
 
     .track-header {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 6px;
-      font-size: 13px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: #a1a1aa;
+    }
+
+    .step-grid-wrapper {
+      overflow-x: auto;
+      padding-bottom: 4px;
     }
 
     .step-grid {
       display: grid;
-      grid-template-columns: repeat(16, 1fr);
+      grid-template-columns: repeat(16, minmax(32px, 1fr));
       gap: 4px;
-      overflow-x: auto;
     }
 
     .step {
@@ -174,23 +184,24 @@
     }
 
     .step.active {
-      background: #10b981;
+      background: #059669;
+      border-color: #34d399;
     }
 
     .step.current {
       border-color: #ffffff;
-      box-shadow: 0 0 6px #ffffff;
+      box-shadow: inset 0 0 0 2px #ffffff;
     }
 
     .step.active.current {
-      background: #34d399;
+      background: #10b981;
     }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h1>Audio Workstation & Sequencer</h1>
+  <h1>Sequencer & Sound Workstation</h1>
 
   <!-- GLOBAL CONTROLS -->
   <div class="panel controls-row">
@@ -210,9 +221,9 @@
     <button id="btnArp">Arp: OFF</button>
   </div>
 
-  <!-- HEX / PAD GRID -->
+  <!-- PADS / HEX GRID -->
   <div class="panel">
-    <h3>Pads / Hex-Grid (Max 4 Hold-Noten)</h3>
+    <h3>Pads (Max 4 Hold-Noten)</h3>
     <div class="held-notes-display">Gehaltene Noten: <span id="heldNotesText">keine</span></div>
     <div class="pad-grid" id="padGrid"></div>
   </div>
@@ -226,7 +237,7 @@
 
 <script>
   /* =========================================================
-     1. AUDIO CONTEXT & SYNTH
+     1. AUDIO CONTEXT & SYNTH ENGINE
      ========================================================= */
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   let audioCtx = null;
@@ -240,7 +251,6 @@
     }
   }
 
-  // Frequenzen für Noten (C3 bis B4)
   const noteFreqs = {
     'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
     'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
@@ -258,7 +268,6 @@
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
 
-    // Envelope
     gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + durationSec);
 
@@ -269,13 +278,12 @@
     osc.stop(audioCtx.currentTime + durationSec);
   }
 
-
   /* =========================================================
-     2. STATE & HOLD LOGIK (MAX 4 NOTEN - FIFO)
+     2. HOLD LOGIK (MAX 4 NOTEN - FIFO)
      ========================================================= */
   let isHoldEnabled = false;
   let isArpEnabled = false;
-  let heldNotes = []; // Array von Note-Strings, z.B. ['C4', 'E4']
+  let heldNotes = [];
   const MAX_HELD_NOTES = 4;
 
   const btnHold = document.getElementById('btnHold');
@@ -302,13 +310,11 @@
     initAudio();
 
     if (isHoldEnabled) {
-      // Wenn bereits vorhanden, kurz neu anstoßen
       if (heldNotes.includes(note)) {
         playCurrentNote(note);
         return;
       }
 
-      // FIFO Logik: Wenn mehr als 4 Noten, älteste löschen
       if (heldNotes.length >= MAX_HELD_NOTES) {
         heldNotes.shift(); // Älteste Note fliegt raus
       }
@@ -317,33 +323,28 @@
       updateHeldDisplay();
     }
 
-    // Wenn kein Arpeggiator läuft, Note direkt anspielen
     if (!isArpEnabled) {
       playCurrentNote(note);
     }
   }
 
   function playCurrentNote(note) {
-    const stepDurationSec = (60 / bpm) / 4; // 16tel Note Dauer
-    const noteLengthFactor = gatePercent / 100;
-    const duration = stepDurationSec * noteLengthFactor;
-    
+    const stepDurationSec = (60 / bpm) / 4;
+    const duration = stepDurationSec * (gatePercent / 100);
     playSynthNote(noteFreqs[note], duration);
   }
 
   function updateHeldDisplay() {
     heldNotesText.innerText = heldNotes.length > 0 ? heldNotes.join(', ') : 'keine';
     
-    // UI-Aktualisierung der Pads
     document.querySelectorAll('.pad').forEach(pad => {
       const note = pad.dataset.note;
       pad.classList.toggle('held', heldNotes.includes(note));
     });
   }
 
-
   /* =========================================================
-     3. PADS / HEX GRID GENERIERUNG & TOUCH-HANDLING
+     3. PAD GRID GENERIERUNG
      ========================================================= */
   const padGrid = document.getElementById('padGrid');
 
@@ -353,7 +354,6 @@
     pad.innerText = note;
     pad.dataset.note = note;
 
-    // Verwende Pointer-Events für schnelle Reaktion & iPad-Fix
     pad.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       pad.classList.add('active');
@@ -365,13 +365,12 @@
       pad.classList.remove('active');
     });
 
-    pad.addEventListener('pointerleave', (e) => {
+    pad.addEventListener('pointerleave', () => {
       pad.classList.remove('active');
     });
 
     padGrid.appendChild(pad);
   });
-
 
   /* =========================================================
      4. SEQUENCER & MULTI-TRACK LOGIK (POLY-RHYTHM FIX)
@@ -383,7 +382,6 @@
   let timerId = null;
   let arpIndex = 0;
 
-  // Track Konfiguration: Track 1 hat 64 Steps, Track 2-4 haben 16 Steps
   const tracks = [
     { id: 1, name: 'Track 1 (64 Steps)', length: 64, steps: new Array(64).fill(false), note: 'C3' },
     { id: 2, name: 'Track 2 (16 Steps)', length: 16, steps: new Array(16).fill(false), note: 'E3' },
@@ -391,7 +389,7 @@
     { id: 4, name: 'Track 4 (16 Steps)', length: 16, steps: new Array(16).fill(false), note: 'C4' },
   ];
 
-  // Beispiel-Pattern vorgeben
+  // Standard-Patterns
   tracks[0].steps[0] = true; tracks[0].steps[16] = true; tracks[0].steps[32] = true; tracks[0].steps[48] = true;
   tracks[1].steps[4] = true; tracks[1].steps[12] = true;
   tracks[2].steps[8] = true;
@@ -405,9 +403,7 @@
   bpmInput.addEventListener('input', (e) => {
     bpm = parseInt(e.target.value);
     bpmVal.innerText = bpm;
-    if (isPlaying) {
-      restartTimer();
-    }
+    if (isPlaying) restartTimer();
   });
 
   gateInput.addEventListener('input', (e) => {
@@ -431,33 +427,26 @@
   });
 
   function runSequencer() {
-    const stepDurationMs = (60000 / bpm) / 4; // 16tel Step Zeit in ms
-    const noteLengthFactor = gatePercent / 100;
-    const soundDurationSec = (stepDurationMs / 1000) * noteLengthFactor;
+    const stepDurationMs = (60000 / bpm) / 4;
+    const soundDurationSec = (stepDurationMs / 1000) * (gatePercent / 100);
 
-    // 1. Tracks abspielen
     tracks.forEach(track => {
-      // IMPORTANT FIX: Jeder Track berechnet seinen Step mit MODULO der eigenen Länge!
-      // Wenn globalStep = 49 ist, rechnet Track 2: 49 % 16 = 1 (läuft also gewohnt im Loop weiter)
+      // Modulo-Berechnung pro Track verhindert Hängenbleiben bei Step 49–64
       const trackStep = globalStep % track.length;
 
-      // Visuals aktualisieren
       updateTrackStepUI(track.id, trackStep);
 
-      // Sound auslösen
       if (track.steps[trackStep]) {
         playSynthNote(noteFreqs[track.note], soundDurationSec);
       }
     });
 
-    // 2. Arpeggiator über gefundene Hold-Noten laufen lassen
     if (isArpEnabled && heldNotes.length > 0) {
       const currentArpNote = heldNotes[arpIndex % heldNotes.length];
       playSynthNote(noteFreqs[currentArpNote], soundDurationSec);
       arpIndex++;
     }
 
-    // Nächster Step
     globalStep++;
     timerId = setTimeout(runSequencer, stepDurationMs);
   }
@@ -481,18 +470,17 @@
 
       const header = document.createElement('div');
       header.className = 'track-header';
-      header.innerHTML = `<span>${track.name}</span> <span>Note: ${track.note}</span>`;
+      header.innerHTML = `<span><strong>${track.name}</strong></span> <span>Note: ${track.note}</span>`;
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'step-grid-wrapper';
 
       const stepGrid = document.createElement('div');
       stepGrid.className = 'step-grid';
       stepGrid.id = `track-grid-${track.id}`;
 
-      // Zeige die ersten 16 Steps in der UI (oder erstelle dynamisch alle Steps)
-      // Um Platz zu sparen, rendern wir 16 sichtbare Boxen. 
-      // Bei Track 1 wechseln die Steps je nach 16er-Block mit.
-      const visibleSteps = Math.min(track.length, 16);
-
-      for (let i = 0; i < visibleSteps; i++) {
+      // Rendere 16 sichtbare Steps im Grid
+      for (let i = 0; i < 16; i++) {
         const step = document.createElement('div');
         step.className = 'step';
         step.dataset.stepIndex = i;
@@ -503,8 +491,6 @@
 
         step.addEventListener('pointerdown', (e) => {
           e.preventDefault();
-          
-          // Berechne echten Step-Index (Falls Track 1 auf Seite 4 ist z.B.)
           const pageOffset = track.length > 16 ? Math.floor((globalStep % track.length) / 16) * 16 : 0;
           const targetStep = i + pageOffset;
 
@@ -515,8 +501,9 @@
         stepGrid.appendChild(step);
       }
 
+      wrapper.appendChild(stepGrid);
       trackEl.appendChild(header);
-      trackEl.appendChild(stepGrid);
+      trackEl.appendChild(wrapper);
       trackContainer.appendChild(trackEl);
     });
   }
@@ -526,8 +513,6 @@
     if (!grid) return;
 
     const steps = grid.querySelectorAll('.step');
-    
-    // Für Tracks mit mehr als 16 Steps (z.B. Track 1): Bestimme relative Anzeige-Position
     const displayStep = trackStep % 16;
 
     steps.forEach((step, idx) => {
@@ -539,7 +524,6 @@
     document.querySelectorAll('.step').forEach(step => step.classList.remove('current'));
   }
 
-  // Initialisierung
   buildTrackUI();
 </script>
 
