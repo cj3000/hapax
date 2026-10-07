@@ -2,8 +2,8 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>Hapax Workstation - Background Engine & Recording</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Hapax Workstation - Advanced Touch & Engine</title>
   <style>
     :root {
       --bg: #0d0e11;
@@ -18,9 +18,21 @@
       --track-active: #ff9900;
       --mute: #e74c3c;
       --solo: #f1c40f;
-      --hex-size: 80px; /* ~3/4 Position */
+      --hex-size: 80px;
       --drum-marker: #3a2212;
     }
+
+    /* iPad & Touch-Optimierung: Keine Selektion, keine Standardgesten */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background-color: var(--bg);
@@ -30,16 +42,22 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      touch-action: manipulation;
+      touch-action: none; /* Deaktiviert Scrollen, Pinch-Zoom & Safari-Gesten */
+      overflow: hidden;
+      height: 100vh;
     }
+
     .app-container {
       width: 100%;
       max-width: 1350px;
+      height: 100%;
       background: var(--card);
       border-radius: 14px;
       border: 1px solid var(--border);
       padding: 14px;
       box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+      display: flex;
+      flex-direction: column;
     }
     
     header {
@@ -111,25 +129,26 @@
     .ms-btn.muted { background: var(--mute); color: #fff; }
     .ms-btn.soloed { background: var(--solo); color: #000; }
 
-    .workspace { display: flex; gap: 12px; }
-    .main-view { flex: 1; min-width: 0; }
+    .workspace { display: flex; gap: 12px; flex: 1; min-height: 0; }
+    .main-view { flex: 1; min-width: 0; overflow-y: auto; }
     .side-panel {
-      width: 240px;
+      width: 250px;
       display: flex;
       flex-direction: column;
-      gap: 10px;
+      gap: 8px;
       background: #111217;
       padding: 10px;
       border-radius: 8px;
       border: 1px solid var(--border);
+      overflow-y: auto;
     }
 
     .panel-section-title {
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       color: #8a94a6;
       text-transform: uppercase;
       letter-spacing: 1px;
-      margin-bottom: 4px;
+      margin-bottom: 3px;
     }
 
     .pad-selector {
@@ -141,8 +160,8 @@
       background: #1a1c24;
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 6px 2px;
-      font-size: 0.68rem;
+      padding: 5px 2px;
+      font-size: 0.65rem;
       border-radius: 4px;
       cursor: pointer;
       text-align: center;
@@ -160,10 +179,10 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      user-select: none;
       transition: background 0.05s, transform 0.05s;
       background: var(--out-scale);
       border: 1px solid var(--border);
+      touch-action: none;
     }
     .pad:active, .pad.playing {
       background: var(--accent) !important;
@@ -180,7 +199,6 @@
     .pad-note { font-size: 0.8rem; font-weight: bold; pointer-events: none; }
     .pad-midi { font-size: 0.6rem; opacity: 0.6; margin-top: 1px; pointer-events: none; }
 
-    /* DYNAMISCHES HEX GRID */
     .hex-wrapper {
       display: flex;
       flex-direction: column;
@@ -210,7 +228,6 @@
     }
     .square-pad { aspect-ratio: 1; border-radius: 6px; }
 
-    /* STEP SEQUENCER & ELEKTRON PAGE NAV */
     .seq-wrapper {
       display: flex;
       flex-direction: column;
@@ -222,7 +239,7 @@
     .seq-row { display: flex; gap: 4px; }
     .seq-pad {
       flex: 1;
-      height: 40px;
+      height: 38px;
       border-radius: 5px;
       font-size: 0.65rem;
     }
@@ -336,7 +353,7 @@
     }
   </style>
 </head>
-<body>
+<body oncontextmenu="return false;">
 
 <div class="app-container">
   <header>
@@ -352,7 +369,7 @@
 
     <div class="side-panel">
 
-      <!-- HEX ZOOM SLIDER (~3/4 Position DEFAULT) -->
+      <!-- HEX ZOOM SLIDER -->
       <div style="background: #181b24; padding: 6px; border-radius: 6px; border: 1px solid var(--accent);">
         <div class="panel-section-title" style="color:var(--accent);">Hex Pad Size (Zoom)</div>
         <input type="range" id="hexZoomSlider" min="35" max="100" value="80" style="width: 100%;">
@@ -368,12 +385,18 @@
         </div>
       </div>
 
+      <!-- GATE / NOTE LENGTH SLIDER -->
+      <div style="background: #181b24; padding: 6px; border-radius: 6px; border: 1px solid var(--border);">
+        <div class="panel-section-title">Note Length / Gate (<span id="gateVal">80%</span>)</div>
+        <input type="range" id="gateSlider" min="10" max="200" value="80" style="width: 100%;">
+      </div>
+
       <!-- PRESET STORAGE SLOTS -->
       <div>
         <div class="panel-section-title">Preset Slots</div>
         <div class="slot-grid" id="slotContainer"></div>
         <div class="io-btn-row">
-          <button class="io-btn" id="saveSlotBtn">Save Active</button>
+          <button class="io-btn" id="saveSlotBtn">Save</button>
           <button class="io-btn" id="exportBtn">JSON Exp</button>
           <button class="io-btn" id="importBtn">JSON Imp</button>
           <input type="file" id="fileInput" accept=".json" style="display:none;">
@@ -470,6 +493,10 @@
 </div>
 
 <script>
+// UNTERBINDEN VON SAFARI GESTEN UND KONTEXTMENÜS
+document.addEventListener('gesturestart', (e) => e.preventDefault());
+document.addEventListener('touchmove', (e) => { if (e.scale !== 1) e.preventDefault(); }, { passive: false });
+
 const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 
 const SCALES = {
@@ -503,17 +530,24 @@ let currentSeqPage = 0;
 let slideEnabled = false;
 let holdEnabled = false;
 let recEnabled = false;
-let isMouseDown = false;
+let isPointerDown = false;
 let isFollowMode = true;
 
+// GLOBAL SEQUENCER STEP COUNTER (POLYRHYTHMIC MODULO ENGINE)
+let globalStep = 0;
+
+// POLYPHONES HOLD SPEICHER (MAX. 4 NOTEN FIFO)
+let heldNotesList = []; 
+let activePressedNotes = new Set();
+
 let tracks = [
-  createTrackState(0, 0),
-  createTrackState(1, 1),
-  createTrackState(2, 2),
-  createTrackState(3, 3)
+  createTrackState(0, 0, 64),
+  createTrackState(1, 1, 16),
+  createTrackState(2, 2, 16),
+  createTrackState(3, 3, 16)
 ];
 
-function createTrackState(id, defaultCh) {
+function createTrackState(id, defaultCh, defaultLen = 16) {
   return {
     id: id,
     outputDeviceId: "",
@@ -524,32 +558,27 @@ function createTrackState(id, defaultCh) {
     rowOffset: 5,
     muted: false,
     soloed: false,
-    length: 16,
+    length: defaultLen,
     chordMode: 'single',
     arpMode: 'off',
-    currentStep: 0,
+    gateLength: 80, // 80% Note Length Default
     seqGridState: Array(seqRows).fill(null).map(() => Array(maxSeqSteps).fill(false)),
     stepChance: Array(maxSeqSteps).fill(100)
   };
 }
 
-let activePressedNotes = new Set();
-let heldNotesList = new Set();
 let isPlaying = false;
 let bpm = 120;
-let arpTimerId = null;
 let currentArpIndex = 0;
-let currentArpNotes = [];
 
-// WEB WORKER & WEB AUDIO API CLOCK FOR BACKGROUND TIMING
+// AUDIO CONTEXT & BACKGROUND WORKER
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let nextStepTime = 0.0;
 const scheduleAheadTime = 0.1;
 
 const workerCode = `
   let timerId = null;
-  let interval = 25; // High precision tick check (25ms)
-
+  let interval = 25;
   self.onmessage = function(e) {
     if (e.data === "start") {
       if (!timerId) timerId = setInterval(() => self.postMessage("tick"), interval);
@@ -570,19 +599,20 @@ timerWorker.onmessage = function(e) {
 
 function scheduler() {
   while (nextStepTime < audioCtx.currentTime + scheduleAheadTime) {
-    triggerSequencerStep();
+    triggerSequencerStep(nextStepTime);
     const secondsPerBeat = 60.0 / bpm;
-    nextStepTime += 0.25 * secondsPerBeat; // 16th notes
+    nextStepTime += 0.25 * secondsPerBeat; // 16th Notes
   }
 }
 
 const viewContainer = document.getElementById('viewContainer');
 
-// MOUSE DRAG / SLIDE TRACKING
-document.body.addEventListener('mousedown', () => isMouseDown = true);
-document.body.addEventListener('mouseup', () => isMouseDown = false);
+// POINTER TRACKING DEPLOYMENT
+document.body.addEventListener('pointerdown', () => isPointerDown = true);
+document.body.addEventListener('pointerup', () => isPointerDown = false);
+document.body.addEventListener('pointercancel', () => isPointerDown = false);
 
-// GLOBAL KEYBOARD SHORTCUT (SPACEBAR FOR PLAY/STOP)
+// GLOBAL SHORTCUTS
 document.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
     e.preventDefault();
@@ -624,28 +654,46 @@ document.getElementById('hexZoomSlider').addEventListener('input', (e) => {
   document.documentElement.style.setProperty('--hex-size', `${e.target.value}px`);
 });
 
+// GATE / NOTE LENGTH CONTROLLER
+const gateSlider = document.getElementById('gateSlider');
+const gateVal = document.getElementById('gateVal');
+gateSlider.addEventListener('input', (e) => {
+  const val = parseInt(e.target.value);
+  tracks[activeTrackIdx].gateLength = val;
+  gateVal.innerText = `${val}%`;
+  autoSaveCurrentState();
+});
+
 // PERFORMANCE TOGGLES
-document.getElementById('slideToggleBtn').addEventListener('click', (e) => {
+document.getElementById('slideToggleBtn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
   slideEnabled = !slideEnabled;
   e.target.classList.toggle('active', slideEnabled);
   e.target.innerText = `Slide: ${slideEnabled ? 'ON' : 'OFF'}`;
 });
 
-document.getElementById('holdToggleBtn').addEventListener('click', (e) => {
+document.getElementById('holdToggleBtn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
   holdEnabled = !holdEnabled;
   e.target.classList.toggle('active', holdEnabled);
   e.target.innerText = `Hold: ${holdEnabled ? 'ON' : 'OFF'}`;
   if (!holdEnabled) {
-    heldNotesList.forEach(n => stopNoteWithChord(n));
-    heldNotesList.clear();
+    clearAllHeldNotes();
   }
 });
 
-document.getElementById('recToggleBtn').addEventListener('click', (e) => {
+document.getElementById('recToggleBtn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
   recEnabled = !recEnabled;
   e.target.classList.toggle('rec-active', recEnabled);
   e.target.innerText = `REC: ${recEnabled ? 'ON' : 'OFF'}`;
 });
+
+function clearAllHeldNotes() {
+  heldNotesList.forEach(n => stopNoteWithChord(n));
+  heldNotesList = [];
+  document.querySelectorAll('.pad.playing').forEach(p => p.classList.remove('playing'));
+}
 
 // STORAGE ENGINE
 function saveToSlot(slotIdx) {
@@ -694,7 +742,8 @@ function renderSlotUI() {
     const btn = document.createElement('button');
     btn.className = `slot-btn ${hasData ? 'has-data' : ''} ${i === activeSlotIdx ? 'active-slot' : ''}`;
     btn.innerText = `P${i + 1}`;
-    btn.addEventListener('click', () => {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
       activeSlotIdx = i;
       if (hasData) loadFromSlot(i);
       else renderSlotUI();
@@ -704,7 +753,7 @@ function renderSlotUI() {
 }
 
 // EXPORT / IMPORT
-document.getElementById('exportBtn').addEventListener('click', () => {
+document.getElementById('exportBtn').addEventListener('pointerdown', () => {
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify({ bpm, tracks }, null, 2));
   const a = document.createElement('a');
   a.setAttribute("href", dataStr);
@@ -714,7 +763,7 @@ document.getElementById('exportBtn').addEventListener('click', () => {
   a.remove();
 });
 
-document.getElementById('importBtn').addEventListener('click', () => document.getElementById('fileInput').click());
+document.getElementById('importBtn').addEventListener('pointerdown', () => document.getElementById('fileInput').click());
 
 document.getElementById('fileInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
@@ -737,7 +786,7 @@ document.getElementById('fileInput').addEventListener('change', (e) => {
   reader.readAsText(file);
 });
 
-document.getElementById('saveSlotBtn').addEventListener('click', () => saveToSlot(activeSlotIdx));
+document.getElementById('saveSlotBtn').addEventListener('pointerdown', () => saveToSlot(activeSlotIdx));
 
 // TRACK STRIP UI
 function renderTrackBar() {
@@ -751,7 +800,8 @@ function renderTrackBar() {
     const btn = document.createElement('button');
     btn.className = 'track-btn';
     btn.innerText = `TRK ${idx + 1} [Ch ${t.channel + 1}] (${t.length}st)`;
-    btn.addEventListener('click', () => {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
       activeTrackIdx = idx;
       renderTrackBar();
       syncSidePanelUI();
@@ -761,7 +811,8 @@ function renderTrackBar() {
     const muteBtn = document.createElement('button');
     muteBtn.className = `ms-btn ${t.muted ? 'muted' : ''}`;
     muteBtn.innerText = 'M';
-    muteBtn.addEventListener('click', (e) => {
+    muteBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       t.muted = !t.muted;
       renderTrackBar();
@@ -771,7 +822,8 @@ function renderTrackBar() {
     const soloBtn = document.createElement('button');
     soloBtn.className = `ms-btn ${t.soloed ? 'soloed' : ''}`;
     soloBtn.innerText = 'S';
-    soloBtn.addEventListener('click', (e) => {
+    soloBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
       e.stopPropagation();
       t.soloed = !t.soloed;
       renderTrackBar();
@@ -813,6 +865,8 @@ function syncSidePanelUI() {
   document.getElementById('trackLengthSelect').value = t.length;
   document.getElementById('chordModeSelect').value = t.chordMode || 'single';
   document.getElementById('arpModeSelect').value = t.arpMode || 'off';
+  gateSlider.value = t.gateLength || 80;
+  gateVal.innerText = `${t.gateLength || 80}%`;
 
   const updateSection = (type, val) => {
     document.querySelectorAll(`.ctrl-pad[data-type="${type}"]`).forEach(p => {
@@ -851,23 +905,27 @@ async function initMIDI() {
   }
 }
 
-function sendMidiMessage(track, statusByte, note, velocity) {
+function sendMidiMessage(track, statusByte, note, velocity, delayMs = 0) {
   if (!midiAccessRef || !track.outputDeviceId) return;
   const output = midiAccessRef.outputs.get(track.outputDeviceId);
   if (output) {
     const channelStatus = statusByte | (track.channel & 0x0F);
-    output.send([channelStatus, note, velocity]);
+    if (delayMs > 0) {
+      setTimeout(() => output.send([channelStatus, note, velocity]), delayMs);
+    } else {
+      output.send([channelStatus, note, velocity]);
+    }
   }
 }
 
 function playTrackNote(track, midiNote) { sendMidiMessage(track, 0x90, midiNote, 100); }
-function stopTrackNote(track, midiNote) { sendMidiMessage(track, 0x80, midiNote, 0); }
+function stopTrackNote(track, midiNote, delayMs = 0) { sendMidiMessage(track, 0x80, midiNote, 0, delayMs); }
 
-// REALTIME STEP RECORDING LOGIC
+// RECORD NOTE TO SEQUENCER
 function recordNoteToCurrentStep(midiNote) {
   if (!recEnabled || !isPlaying) return;
   const t = tracks[activeTrackIdx];
-  const step = t.currentStep;
+  const step = globalStep % t.length;
   const rowIndex = Math.floor((midiNote - t.rootMidi) / 2);
 
   if (rowIndex >= 0 && rowIndex < seqRows) {
@@ -877,22 +935,42 @@ function recordNoteToCurrentStep(midiNote) {
   }
 }
 
-// CHORD & PAD PLAYING LOGIC
+// POLYPHONES HOLD SYSTEM (MAX. 4 NOTEN - FIFO)
+function handlePolyphonicHold(midiNote) {
+  const existingIndex = heldNotesList.indexOf(midiNote);
+  
+  if (existingIndex !== -1) {
+    // Note bereits im Speicher -> Entfernen (Toggle Off)
+    heldNotesList.splice(existingIndex, 1);
+    stopNoteWithChord(midiNote);
+    return false;
+  } else {
+    // Wenn 4 Noten erreicht -> Älteste fliegt raus (FIFO)
+    if (heldNotesList.length >= 4) {
+      const oldestNote = heldNotesList.shift();
+      stopNoteWithChord(oldestNote);
+      // Entferne die Visualisierung der ältesten Note
+      document.querySelectorAll(`.pad[data-midi="${oldestNote}"]`).forEach(p => p.classList.remove('playing'));
+    }
+    heldNotesList.push(midiNote);
+    playNoteWithChord(midiNote);
+    return true;
+  }
+}
+
+// PLAY / STOP WITH CHORDS
 function playNoteWithChord(midiNote) {
   const t = tracks[activeTrackIdx];
   const intervals = CHORD_FORMULAS[t.chordMode || 'single'];
 
   recordNoteToCurrentStep(midiNote);
 
-  if (t.arpMode && t.arpMode !== 'off') {
-    startArpeggiator(t, midiNote, intervals);
-  } else {
-    intervals.forEach(interval => {
-      const targetNote = midiNote + interval;
-      playTrackNote(t, targetNote);
-      activePressedNotes.add(targetNote % 12);
-    });
-  }
+  intervals.forEach(interval => {
+    const targetNote = midiNote + interval;
+    playTrackNote(t, targetNote);
+    activePressedNotes.add(targetNote % 12);
+  });
+
   highlightChordPads(midiNote, intervals);
   updateChordDisplay();
 }
@@ -901,15 +979,12 @@ function stopNoteWithChord(midiNote) {
   const t = tracks[activeTrackIdx];
   const intervals = CHORD_FORMULAS[t.chordMode || 'single'];
 
-  if (t.arpMode && t.arpMode !== 'off') {
-    stopArpeggiator();
-  } else {
-    intervals.forEach(interval => {
-      const targetNote = midiNote + interval;
-      stopTrackNote(t, targetNote);
-      activePressedNotes.delete(targetNote % 12);
-    });
-  }
+  intervals.forEach(interval => {
+    const targetNote = midiNote + interval;
+    stopTrackNote(t, targetNote);
+    activePressedNotes.delete(targetNote % 12);
+  });
+
   clearSameNoteHighlights();
   updateChordDisplay();
 }
@@ -924,39 +999,6 @@ function highlightChordPads(rootMidi, intervals) {
       }
     });
   });
-}
-
-// ARPEGGIATOR ENGINE
-function startArpeggiator(track, rootNote, intervals) {
-  stopArpeggiator();
-  currentArpNotes = intervals.map(i => rootNote + i);
-  currentArpIndex = 0;
-
-  const stepTime = (60 / bpm / 4) * 1000;
-  arpTimerId = setInterval(() => {
-    if (currentArpNotes.length === 0) return;
-    
-    let noteToPlay = currentArpNotes[0];
-    if (track.arpMode === 'up') {
-      noteToPlay = currentArpNotes[currentArpIndex % currentArpNotes.length];
-      currentArpIndex++;
-    } else if (track.arpMode === 'down') {
-      noteToPlay = currentArpNotes[(currentArpNotes.length - 1 - currentArpIndex) % currentArpNotes.length];
-      currentArpIndex++;
-    } else if (track.arpMode === 'random') {
-      noteToPlay = currentArpNotes[Math.floor(Math.random() * currentArpNotes.length)];
-    }
-
-    playTrackNote(track, noteToPlay);
-    setTimeout(() => stopTrackNote(track, noteToPlay), stepTime * 0.8);
-  }, stepTime);
-}
-
-function stopArpeggiator() {
-  if (arpTimerId) {
-    clearInterval(arpTimerId);
-    arpTimerId = null;
-  }
 }
 
 function updateChordDisplay() {
@@ -1020,7 +1062,8 @@ function renderHexGrid(t) {
       const details = getNoteDetails(midiNote, t);
 
       const pad = document.createElement('div');
-      pad.className = `pad hex-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
+      const isHeld = heldNotesList.includes(midiNote);
+      pad.className = `pad hex-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''} ${isHeld ? 'playing' : ''}`;
       pad.dataset.midi = midiNote;
       pad.innerHTML = `<span class="pad-note">${details.name}</span><span class="pad-midi">${details.midi}</span>`;
 
@@ -1043,7 +1086,8 @@ function renderSquareGrid(t) {
       const details = getNoteDetails(midiNote, t);
 
       const pad = document.createElement('div');
-      pad.className = `pad square-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''}`;
+      const isHeld = heldNotesList.includes(midiNote);
+      pad.className = `pad square-pad ${details.isRoot ? 'is-root' : details.isInScale ? 'in-scale' : ''} ${isHeld ? 'playing' : ''}`;
       pad.dataset.midi = midiNote;
       pad.innerHTML = `<span class="pad-note">${details.name}</span><span class="pad-midi">${details.midi}</span>`;
 
@@ -1054,18 +1098,12 @@ function renderSquareGrid(t) {
   viewContainer.appendChild(grid);
 }
 
+// IPAD TOUCH OPTIMIZED PAD EVENTS (POINTER EVENTS ENGINE)
 function bindPadEvents(pad, midiNote) {
-  const triggerStart = () => {
+  const triggerStart = (e) => {
     if (holdEnabled) {
-      if (heldNotesList.has(midiNote)) {
-        heldNotesList.delete(midiNote);
-        stopNoteWithChord(midiNote);
-        pad.classList.remove('playing');
-      } else {
-        heldNotesList.add(midiNote);
-        playNoteWithChord(midiNote);
-        pad.classList.add('playing');
-      }
+      const active = handlePolyphonicHold(midiNote);
+      pad.classList.toggle('playing', active);
     } else {
       pad.classList.add('playing');
       playNoteWithChord(midiNote);
@@ -1079,37 +1117,43 @@ function bindPadEvents(pad, midiNote) {
     }
   };
 
-  pad.addEventListener('mousedown', (e) => {
+  pad.addEventListener('pointerdown', (e) => {
     e.preventDefault();
-    triggerStart();
+    try { pad.setPointerCapture(e.pointerId); } catch(err) {}
+    triggerStart(e);
   });
 
-  pad.addEventListener('mouseenter', (e) => {
-    if (slideEnabled && isMouseDown) {
+  pad.addEventListener('pointerenter', (e) => {
+    if (slideEnabled && isPointerDown && !holdEnabled) {
       e.preventDefault();
-      triggerStart();
+      triggerStart(e);
     }
   });
 
-  pad.addEventListener('mouseleave', (e) => {
-    if (slideEnabled && isMouseDown) {
+  pad.addEventListener('pointerleave', (e) => {
+    if (slideEnabled && isPointerDown && !holdEnabled) {
       e.preventDefault();
       triggerEnd();
     }
   });
 
-  pad.addEventListener('mouseup', (e) => {
+  pad.addEventListener('pointerup', (e) => {
+    e.preventDefault();
+    try { pad.releasePointerCapture(e.pointerId); } catch(err) {}
+    triggerEnd();
+  });
+
+  pad.addEventListener('pointercancel', (e) => {
     e.preventDefault();
     triggerEnd();
   });
 }
 
-// 64-STEP SEQUENCER WITH DRUM HIGHLIGHT & FOLLOW MODE
+// 64-STEP SEQUENCER
 function renderStepSeq(t) {
   const wrapper = document.createElement('div');
   wrapper.className = 'seq-wrapper';
 
-  // ELEKTRON PAGE NAV BAR & FOLLOW TOGGLE
   const navBar = document.createElement('div');
   navBar.className = 'seq-nav-bar';
 
@@ -1122,7 +1166,8 @@ function renderStepSeq(t) {
   const followBtn = document.createElement('button');
   followBtn.className = `page-btn ${isFollowMode ? 'active-page' : ''}`;
   followBtn.innerText = `FOLLOW: ${isFollowMode ? 'ON' : 'OFF'}`;
-  followBtn.addEventListener('click', () => {
+  followBtn.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
     isFollowMode = !isFollowMode;
     renderView();
   });
@@ -1138,7 +1183,8 @@ function renderStepSeq(t) {
     btn.innerText = `${p * 16 + 1}-${Math.min((p + 1) * 16, t.length)}`;
     btn.dataset.page = p;
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
       currentSeqPage = p;
       renderView();
     });
@@ -1147,7 +1193,6 @@ function renderStepSeq(t) {
   navBar.appendChild(btnGroup);
   wrapper.appendChild(navBar);
 
-  // STEP MATRIX
   const startStep = currentSeqPage * 16;
   const endStep = Math.min(startStep + 16, t.length);
 
@@ -1158,14 +1203,15 @@ function renderStepSeq(t) {
     const details = getNoteDetails(pitch, t);
 
     for (let c = startStep; c < endStep; c++) {
-      const isDrumBeat = (c % 16 === 0 || c % 16 === 4 || c % 16 === 8 || c % 16 === 12); // Steps 1, 5, 9, 13
+      const isDrumBeat = (c % 16 === 0 || c % 16 === 4 || c % 16 === 8 || c % 16 === 12);
       const pad = document.createElement('div');
       pad.className = `pad seq-pad ${isDrumBeat ? 'drum-beat' : ''} ${t.seqGridState[r][c] ? 'active-step' : ''}`;
       pad.dataset.row = r;
       pad.dataset.col = c;
       pad.innerHTML = `<span class="pad-note">${details.name}</span>`;
 
-      pad.addEventListener('click', () => {
+      pad.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
         t.seqGridState[r][c] = !t.seqGridState[r][c];
         pad.classList.toggle('active-step', t.seqGridState[r][c]);
         autoSaveCurrentState();
@@ -1180,7 +1226,6 @@ function renderStepSeq(t) {
     wrapper.appendChild(rowEl);
   }
 
-  // CHANCE ROW
   const chanceRow = document.createElement('div');
   chanceRow.className = 'chance-row';
   for (let c = startStep; c < endStep; c++) {
@@ -1208,10 +1253,9 @@ function updatePlayheadUI() {
   const t = tracks[activeTrackIdx];
   if (t.mode !== 'step') return;
 
-  const currentTrackStep = t.currentStep;
+  const currentTrackStep = globalStep % t.length;
   const activePageOfPlayhead = Math.floor(currentTrackStep / 16);
 
-  // AUTO-FOLLOW PAGE SWITCHING
   if (isFollowMode && activePageOfPlayhead !== currentSeqPage) {
     currentSeqPage = activePageOfPlayhead;
     renderView();
@@ -1229,34 +1273,63 @@ function updatePlayheadUI() {
   });
 }
 
-// POLYRHYTHMIC SEQUENCER ENGINE TRIGGER
-function triggerSequencerStep() {
+// POLYRHYTHMIC SEQUENCER ENGINE (MODULO STEP COUNTER + ARPEGGIATOR)
+function triggerSequencerStep(time) {
   const anySolo = tracks.some(t => t.soloed);
+  const stepDurationMs = (60 / bpm / 4) * 1000;
 
   tracks.forEach(t => {
     if (t.muted || (anySolo && !t.soloed)) return;
 
-    // Follow Mode vs. Page Loop Calculation
-    let step = t.currentStep;
-    if (!isFollowMode && t.mode === 'step') {
-      const start = currentSeqPage * 16;
-      const end = Math.min(start + 16, t.length);
-      step = start + (t.currentStep % (end - start));
-    }
+    // Modulo Counter für unabhänige Pattern-Längen (Polyrhythmik)
+    const trackStep = globalStep % t.length;
+    const gateMs = stepDurationMs * ((t.gateLength || 80) / 100);
 
-    if (Math.random() * 100 <= t.stepChance[step]) {
+    // 1. SEQUENCER PATTERN TRIGGER
+    if (Math.random() * 100 <= t.stepChance[trackStep]) {
       for (let r = 0; r < seqRows; r++) {
-        if (t.seqGridState[r][step]) {
+        if (t.seqGridState[r][trackStep]) {
           const pitch = t.rootMidi + r * 2;
-          playTrackNote(t, pitch);
-          setTimeout(() => stopTrackNote(t, pitch), 120);
+          const intervals = CHORD_FORMULAS[t.chordMode || 'single'];
+          
+          intervals.forEach(i => {
+            const note = pitch + i;
+            playTrackNote(t, note);
+            stopTrackNote(t, note, gateMs);
+          });
         }
       }
     }
 
-    t.currentStep = (t.currentStep + 1) % t.length;
+    // 2. KONTINUIERLICHER ARPEGGIATOR (Basiert auf gehaltenen Noten)
+    if (t.arpMode && t.arpMode !== 'off' && heldNotesList.length > 0) {
+      let arpNotes = [...heldNotesList];
+      let noteToPlay = arpNotes[0];
+
+      if (t.arpMode === 'up') {
+        noteToPlay = arpNotes[currentArpIndex % arpNotes.length];
+      } else if (t.arpMode === 'down') {
+        noteToPlay = arpNotes[(arpNotes.length - 1 - (currentArpIndex % arpNotes.length))];
+      } else if (t.arpMode === 'updown') {
+        const doubleLen = (arpNotes.length * 2) - 2;
+        const mod = currentArpIndex % (doubleLen || 1);
+        const idx = mod < arpNotes.length ? mod : doubleLen - mod;
+        noteToPlay = arpNotes[idx];
+      } else if (t.arpMode === 'random') {
+        noteToPlay = arpNotes[Math.floor(Math.random() * arpNotes.length)];
+      }
+
+      const intervals = CHORD_FORMULAS[t.chordMode || 'single'];
+      intervals.forEach(i => {
+        const targetNote = noteToPlay + i;
+        playTrackNote(t, targetNote);
+        stopTrackNote(t, targetNote, gateMs);
+      });
+    }
   });
 
+  currentArpIndex++;
+  globalStep++;
   requestAnimationFrame(updatePlayheadUI);
 }
 
@@ -1266,7 +1339,8 @@ function togglePlayStop() {
   
   if (isPlaying) {
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    tracks.forEach(t => t.currentStep = 0);
+    globalStep = 0;
+    currentArpIndex = 0;
     nextStepTime = audioCtx.currentTime;
     timerWorker.postMessage("start");
   } else {
@@ -1289,9 +1363,6 @@ document.getElementById('channelSelect').addEventListener('change', (e) => {
 
 document.getElementById('trackLengthSelect').addEventListener('change', (e) => {
   tracks[activeTrackIdx].length = parseInt(e.target.value);
-  if (tracks[activeTrackIdx].currentStep >= tracks[activeTrackIdx].length) {
-    tracks[activeTrackIdx].currentStep = 0;
-  }
   renderTrackBar();
   renderView();
   autoSaveCurrentState();
@@ -1308,9 +1379,10 @@ document.getElementById('arpModeSelect').addEventListener('change', (e) => {
 });
 
 document.querySelectorAll('.ctrl-pad').forEach(pad => {
-  pad.addEventListener('click', (e) => {
-    const type = e.target.dataset.type;
-    const val = e.target.dataset.val;
+  pad.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const type = pad.dataset.type;
+    const val = pad.dataset.val;
     const t = tracks[activeTrackIdx];
 
     if (type === 'mode') t.mode = val;
@@ -1324,7 +1396,10 @@ document.querySelectorAll('.ctrl-pad').forEach(pad => {
   });
 });
 
-document.getElementById('playBtn').addEventListener('click', togglePlayStop);
+document.getElementById('playBtn').addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  togglePlayStop();
+});
 
 document.getElementById('bpm').addEventListener('change', (e) => {
   bpm = parseInt(e.target.value);
